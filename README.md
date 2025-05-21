@@ -1,4 +1,4 @@
-# Rede Social FEIBOOK 
+# Rede Social FEICEBOOK 
 
 ## Pré requisitos para rodar o programa
 
