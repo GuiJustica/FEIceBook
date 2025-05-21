@@ -1,8 +1,15 @@
 # Rede Social FEIceBOOK 
 
+## Autores do Projeto
+* Felipe Orlando Lanzara - 24.122.055-7
+* Guilherme Marcato Mendes Justiça - 24.122.045-8
+* João Vitor Governatore - 24.122.027-6
+* Paulo Vincius Araujo Feitosa - 24.122.042-5
+
+
 ## Pré requisitos para rodar o programa
 
-###  [Docker](https://www.docker.com/)
+### [Docker](https://www.docker.com/)
 ### [NodeJS](https://nodejs.org/pt/download/current)
 ### [Java](https://www.oracle.com/java/technologies/downloads/)
 ### [Python](https://www.python.org/downloads/)
