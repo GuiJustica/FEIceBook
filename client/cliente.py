@@ -270,60 +270,70 @@ def open_post_window(username):
         if not content:
             messagebox.showerror("Erro", "O conteúdo do post não pode estar vazio.")
             return
-        
-        
 
         conn = connect_to_db()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                    novo_post = { timestamp: {"id_post": post_id, "conteudo": content} }
-                    # Obter os posts existentes do usuário
-                    cur.execute("SELECT posts_enviados FROM usuario WHERE usuario_nome = %s", (username,))
-                    result = cur.fetchone()
-                    posts = json.loads(result[0]) if result and isinstance(result[0], str) else {}
+        if not conn:
+            messagebox.showerror("Erro", "Não foi possível conectar ao banco.")
+            return
 
-                    # Adicionar o novo post
-                    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                    post_id = str(uuid.uuid4())
-                    posts[timestamp] = {"id_post": post_id, "conteudo": content}
+        try:
+            with conn.cursor() as cur:
+                # 1) Gere o timestamp e o ID do post
+                timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                post_id   = str(uuid.uuid4())
 
-                    # Atualizar os posts no banco de dados
-                    cur.execute(
-                        "UPDATE usuario " \
-                        "SET posts_enviados = post_enviados || %s::jsonb " \
-                        "WHERE usuario_nome = %s", (json.dumps(novo_post), username))
-                    conn.commit()
-
-                    # Conectar ao RabbitMQ e publicar o post
-                    rabbit_conn = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
-                    ch = rabbit_conn.channel()
-                    ch.exchange_declare(exchange='posts', exchange_type='fanout', durable=True)
-
-                    post_msg = {
-                        "type": "post",
-                        "postId": post_id,
-                        "userId": username,
-                        "content": content,
-                        "timestamp": timestamp
+                # 2) Monte o JSONB minimalista do novo post
+                novo_post = {
+                    timestamp: {
+                        "id_post": post_id,
+                        "conteudo": content
                     }
-                    ch.basic_publish(
-                        exchange='posts',
-                        routing_key='',
-                        body=json.dumps(post_msg),
-                        properties=pika.BasicProperties(delivery_mode=2)
-                    )
-                    rabbit_conn.close()
+                }
 
-                    # Atualizar a interface
-                    tk.Label(posts_frame, text=f"{username} ({timestamp}): {content}").pack(anchor="w")
-                    new_post_entry.delete(0, tk.END)
-                    messagebox.showinfo("Sucesso", "Post enviado com sucesso!")
-            except Exception as e:
-                messagebox.showerror("Erro", f"Erro ao enviar post: {e}")
-            finally:
-                conn.close()
+                # 3) Atualize atomically, adicionando só se a chave (timestamp) ainda não existir
+                cur.execute("""
+                    UPDATE usuario
+                    SET posts_enviados = posts_enviados || %s::jsonb
+                    WHERE usuario_nome = %s
+                    AND NOT EXISTS (
+                        SELECT 1
+                            FROM jsonb_object_keys(posts_enviados) AS key
+                            WHERE key = %s
+                    )
+                """, (json.dumps(novo_post), username, timestamp))
+                conn.commit()
+
+                # 4) Publica no RabbitMQ
+                rabbit_conn = pika.BlockingConnection(
+                    pika.ConnectionParameters(host="localhost")
+                )
+                ch = rabbit_conn.channel()
+                ch.exchange_declare(exchange="posts", exchange_type="fanout", durable=True)
+
+                post_msg = {
+                    "type":     "post",
+                    "postId":   post_id,
+                    "userId":   username,
+                    "content":  content,
+                    "timestamp": timestamp,
+                }
+                ch.basic_publish(
+                    exchange="posts",
+                    routing_key="",
+                    body=json.dumps(post_msg),
+                    properties=pika.BasicProperties(delivery_mode=2),
+                )
+                rabbit_conn.close()
+
+                # 5) Atualiza UI e limpa input
+                tk.Label(posts_frame, text=f"{username} ({timestamp}): {content}") \
+                .pack(anchor="w")
+                new_post_entry.delete(0, tk.END)
+                messagebox.showinfo("Sucesso", "Post enviado com sucesso!")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao enviar post: {e}")
+        finally:
+            conn.close()
 
     tk.Button(new_post_frame, text="Postar", command=submit_post).pack(side=tk.LEFT, padx=5)
 
@@ -375,45 +385,67 @@ def follow_user(username):
                 with conn.cursor() as cur:
                     # Atualizar a lista de "seguindo" do usuário
                     cur.execute(
-                        "SELECT seguindo " \
-                        "FROM usuario " \
-                        "WHERE usuario_nome = %s", (username,))
+                        "SELECT seguindo FROM usuario WHERE usuario_nome = %s", (username,)
+                    )
                     result = cur.fetchone()
                     seguindo = json.loads(result[0]) if result and isinstance(result[0], str) else []
 
                     if follow not in seguindo:
                         seguindo.append(follow)
                         cur.execute(
-                        "UPDATE usuario " \
-                        "SET seguindo = seguindo || %s::jsonb " \
-                        "WHERE usuario_nome = %s", (json.dumps(seguindo), username))
+                            """
+                            UPDATE usuario
+                            SET seguindo = seguindo || %s::jsonb
+                            WHERE usuario_nome = %s
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM jsonb_array_elements_text(seguindo) AS elem(value)
+                                WHERE elem.value = %s
+                            )
+                            """,
+                            (json.dumps([follow]), username, follow),
+                        )
 
                     # Atualizar a lista de "seguido_por" do usuário seguido
-                    cur.execute("SELECT seguido_por FROM usuario WHERE usuario_nome = %s", (follow,))
+                    cur.execute(
+                        "SELECT seguido_por FROM usuario WHERE usuario_nome = %s", (follow,)
+                    )
                     result = cur.fetchone()
                     seguido_por = json.loads(result[0]) if result and isinstance(result[0], str) else []
 
                     if username not in seguido_por:
                         seguido_por.append(username)
-                        cur.execute("UPDATE usuario SET seguido_por = %s WHERE usuario_nome = %s", (json.dumps(seguido_por), follow))
+                        cur.execute(
+                            """
+                            UPDATE usuario
+                            SET seguido_por = seguido_por || %s::jsonb
+                            WHERE usuario_nome = %s
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM jsonb_array_elements_text(seguido_por) AS elem(value)
+                                WHERE elem.value = %s
+                            )
+                            """,
+                            (json.dumps([username]), follow, username),
+                        )
 
                     conn.commit()
 
                     # Conectar ao RabbitMQ e publicar o evento de follow
-                    rabbit_conn = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+                    rabbit_conn = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
                     ch = rabbit_conn.channel()
-                    ch.exchange_declare(exchange='follows', exchange_type='fanout', durable=True)
+                    ch.exchange_declare(exchange="follows", exchange_type="fanout", durable=True)
 
                     follow_msg = {
                         "type": "follow",
                         "followerId": username,
-                        "followedId": follow
+                        "followedId": follow,
                     }
                     ch.basic_publish(
-                        exchange='follows',
-                        routing_key='',
+                        exchange="follows",
+                        routing_key="",
                         body=json.dumps(follow_msg),
-                        properties=pika.BasicProperties(delivery_mode=2)
+                        properties=pika.BasicProperties(delivery_mode=2),
                     )
                     rabbit_conn.close()
 
