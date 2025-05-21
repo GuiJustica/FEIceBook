@@ -4,6 +4,7 @@ import uuid
 import datetime
 import threading
 import tkinter as tk
+from tkinter import ttk
 from tkinter import messagebox
 
 from database import connect_to_db 
@@ -45,8 +46,8 @@ def create_account():
 
             # Inserir o novo usuário no banco de dados
             cur.execute(
-                "INSERT INTO usuario (usuario_nome, senha, posts_enviados, seguindo, seguido_por) VALUES (%s, %s, %s, %s, %s)",
-                (username, password, '{}', '[]', '[]')  # Inicialmente, os campos são strings vazias
+            "INSERT INTO usuario (usuario_nome, senha) VALUES (%s, %s)",
+            (username, password)
             )
             conn.commit()
             messagebox.showinfo("Sucesso", "Conta criada com sucesso!")
@@ -246,7 +247,9 @@ def open_post_window(username):
                 for row in rows:
                     user, posts = row
                     if posts:
-                        posts = json.loads(posts)
+                        # Verificar se o valor é uma string antes de carregar como JSON
+                        if isinstance(posts, str):
+                            posts = json.loads(posts)
                         for timestamp, post_data in posts.items():
                             tk.Label(posts_frame, text=f"{user} ({timestamp}): {post_data['conteudo']}").pack(anchor="w")
         except Exception as e:
@@ -267,11 +270,15 @@ def open_post_window(username):
         if not content:
             messagebox.showerror("Erro", "O conteúdo do post não pode estar vazio.")
             return
+        
+        
 
         conn = connect_to_db()
         if conn:
             try:
                 with conn.cursor() as cur:
+                    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    novo_post = { timestamp: {"id_post": post_id, "conteudo": content} }
                     # Obter os posts existentes do usuário
                     cur.execute("SELECT posts_enviados FROM usuario WHERE usuario_nome = %s", (username,))
                     result = cur.fetchone()
@@ -283,11 +290,17 @@ def open_post_window(username):
                     posts[timestamp] = {"id_post": post_id, "conteudo": content}
 
                     # Atualizar os posts no banco de dados
-                    cur.execute("UPDATE usuario SET posts_enviados = %s WHERE usuario_nome = %s", (json.dumps(posts), username))
+                    cur.execute(
+                        "UPDATE usuario " \
+                        "SET posts_enviados = post_enviados || %s::jsonb " \
+                        "WHERE usuario_nome = %s", (json.dumps(novo_post), username))
                     conn.commit()
 
-                    # Publicar o post no RabbitMQ
+                    # Conectar ao RabbitMQ e publicar o post
+                    rabbit_conn = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+                    ch = rabbit_conn.channel()
                     ch.exchange_declare(exchange='posts', exchange_type='fanout', durable=True)
+
                     post_msg = {
                         "type": "post",
                         "postId": post_id,
@@ -301,6 +314,7 @@ def open_post_window(username):
                         body=json.dumps(post_msg),
                         properties=pika.BasicProperties(delivery_mode=2)
                     )
+                    rabbit_conn.close()
 
                     # Atualizar a interface
                     tk.Label(posts_frame, text=f"{username} ({timestamp}): {content}").pack(anchor="w")
@@ -321,19 +335,38 @@ def follow_user(username):
     # Título
     tk.Label(follow_window, text="Seguir Usuário", font=("Arial", 16)).pack(pady=10)
 
-    # Campo de entrada para o nome do usuário a ser seguido
-    tk.Label(follow_window, text="Digite o nome do usuário que deseja seguir:").pack()
-    entry_follow_username = tk.Entry(follow_window, width=30)
-    entry_follow_username.pack(pady=5)
+    # Obter a lista de usuários do banco de dados
+    conn = connect_to_db()
+    if not conn:
+        messagebox.showerror("Erro", "Erro ao conectar ao banco de dados.")
+        return
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT usuario_nome FROM usuario WHERE usuario_nome != %s", (username,))
+            users = [row[0] for row in cur.fetchall()]
+    except Exception as e:
+        messagebox.showerror("Erro", f"Erro ao carregar usuários: {e}")
+        follow_window.destroy()
+        return
+    finally:
+        conn.close()
+
+    # Verificar se há usuários disponíveis para seguir
+    if not users:
+        messagebox.showinfo("Informação", "Não há outros usuários disponíveis para seguir.")
+        follow_window.destroy()
+        return
+
+    # Campo de seleção para o nome do usuário a ser seguido
+    tk.Label(follow_window, text="Selecione o usuário que deseja seguir:").pack()
+    user_combobox = ttk.Combobox(follow_window, values=users, state="readonly", width=30)
+    user_combobox.pack(pady=5)
 
     def submit_follow():
-        follow = entry_follow_username.get().strip()
+        follow = user_combobox.get().strip()
         if not follow:
-            messagebox.showerror("Erro", "O nome do usuário não pode estar vazio.")
-            return
-
-        if follow == username:
-            messagebox.showerror("Erro", "Você não pode seguir a si mesmo.")
+            messagebox.showerror("Erro", "Selecione um usuário para seguir.")
             return
 
         conn = connect_to_db()
@@ -341,13 +374,19 @@ def follow_user(username):
             try:
                 with conn.cursor() as cur:
                     # Atualizar a lista de "seguindo" do usuário
-                    cur.execute("SELECT seguindo FROM usuario WHERE usuario_nome = %s", (username,))
+                    cur.execute(
+                        "SELECT seguindo " \
+                        "FROM usuario " \
+                        "WHERE usuario_nome = %s", (username,))
                     result = cur.fetchone()
                     seguindo = json.loads(result[0]) if result and isinstance(result[0], str) else []
 
                     if follow not in seguindo:
                         seguindo.append(follow)
-                        cur.execute("UPDATE usuario SET seguindo = %s WHERE usuario_nome = %s", (json.dumps(seguindo), username))
+                        cur.execute(
+                        "UPDATE usuario " \
+                        "SET seguindo = seguindo || %s::jsonb " \
+                        "WHERE usuario_nome = %s", (json.dumps(seguindo), username))
 
                     # Atualizar a lista de "seguido_por" do usuário seguido
                     cur.execute("SELECT seguido_por FROM usuario WHERE usuario_nome = %s", (follow,))
