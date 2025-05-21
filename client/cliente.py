@@ -215,7 +215,7 @@ def open_menu(username):
 
     # 3) Sidebar
     sidebar = customtkinter.CTkFrame(menu_window, width=140, corner_radius=0)
-    sidebar.grid(row=0, column=0, sticky="nsew")
+    sidebar.grid(row=0, column=0, sticky="nsew")  
     sidebar.grid_rowconfigure(4, weight=1)
 
     # 4) Área de conteúdo
@@ -271,6 +271,7 @@ def open_menu(username):
             follow_frame, values=users, state="readonly", width=30
         )
         user_combobox.pack(pady=5)
+
 
         def submit_follow():
             follow = user_combobox.get().strip()
@@ -365,21 +366,50 @@ def open_menu(username):
                         messagebox.showinfo(
                             "Sucesso", f"Agora você está seguindo {follow}!"
                         )
-                        #follow_window.destroy()
+                        # follow_window.destroy()
                 except Exception as e:
                     messagebox.showerror("Erro", f"Erro ao seguir usuário: {e}")
                 finally:
                     conn.close()
 
         # Botão para confirmar o follow
-        customtkinter.CTkButton(follow_frame, text="Seguir", command=submit_follow).pack(pady=10)
+        customtkinter.CTkButton(
+            follow_frame, text="Seguir", command=submit_follow
+        ).pack(pady=10)
+
+
+
+
+    def private_message():
+        limpar_conteudo()
+        # Container para exibir os posts
+        follow_frame = customtkinter.CTkFrame(content_area)
+        follow_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
+
+        # Título
+        customtkinter.CTkLabel(follow_frame, text="Mensagens Privadas", font=("Arial", 16)).pack(
+            anchor="w", pady=(0, 10)
+        )
+
+        
+
+        
+
+
+
+
+
+
+
+
+
 
 
     def mostrar_post_feed():
         limpar_conteudo()
 
         # Container para exibir os posts
-        posts_frame = customtkinter.CTkFrame(content_area)
+        posts_frame = customtkinter.CTkScrollableFrame(content_area)
         posts_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
         # Título
@@ -505,17 +535,17 @@ def open_menu(username):
         ).pack(side="left", padx=5)
 
     # Botões da sidebar
-    customtkinter.CTkButton(sidebar, text="Postar", command=mostrar_post_feed).grid(
-        row=0, column=0, padx=20, pady=10, sticky="ew"
-    )
+    customtkinter.CTkButton(
+        sidebar, text="Postar", command=mostrar_post_feed).grid(
+        row=0, column=0, padx=20, pady=10, sticky="ew")
 
     customtkinter.CTkButton(
         sidebar, text="Seguir", command=follow_user).grid(
         row=1, column=0, padx=20, pady=10, sticky="ew")
-
+                                                                                              
     customtkinter.CTkButton(
-        sidebar, text="Mensagens Privadas", command=lambda: private_messages(username)
-    ).grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        sidebar, text="Mensagens Privadas", command=private_message).grid(
+            row=2, column=0, padx=20, pady=10, sticky="ew")
 
     customtkinter.CTkButton(
         sidebar,
@@ -555,6 +585,7 @@ def encerrar_execucao():
 def change_appearance_mode_event(new_appearance_mode: str):
     customtkinter.set_appearance_mode(new_appearance_mode)
 
+# FINALIZADO
 def open_post_window(username):
 
     # Criar a janela de postagem
@@ -677,7 +708,7 @@ def open_post_window(username):
             conn.close()
 
     tk.Button(new_post_frame, text="Postar", command=submit_post).pack(side=tk.LEFT, padx=5)
-
+# FINALIZADO
 def follow_user(username):
     # Criar a janela para seguir outro usuário
     follow_window = tk.Toplevel(root)
@@ -803,17 +834,13 @@ def follow_user(username):
     # Botão para fechar a janela
     tk.Button(follow_window, text="Cancelar", command=follow_window.destroy).pack(pady=5)
 
-def private_messages(username):
-    # Função para mensagens privadas (a ser implementada)
-    messagebox.showinfo("Mensagens Privadas", "Funcionalidade de mensagens privadas ainda não implementada.")
-
 
 customtkinter.set_appearance_mode("dark")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
 # Interface gráfica
 root = customtkinter.CTk()
-root.title("Rede Social")
+root.title("FEICEBOOK")
 root.geometry(f"{300}x{300}")
 
 
@@ -849,6 +876,11 @@ customtkinter.CTkLabel(frame_login, text=" ").pack()
 
 customtkinter.CTkButton(frame_login, text="Login", command=login).pack(pady=10)
 customtkinter.CTkButton(frame_login, text="Criar Conta", command=switch_to_create_account).pack()
+
+
+root.appearance_mode_optionemenu.set("Dark")
+root.textbox = customtkinter.CTkTextbox(root, text_color="#296cc4", width=250)
+root.textbox.grid(row=1, column=1,padx=(20,20), pady=(10, 0),sticky='nsew')
 
 
 root.mainloop()
