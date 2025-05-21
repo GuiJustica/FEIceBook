@@ -1,12 +1,24 @@
-version: '3.8'
-
 services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbit
     ports:
       - "5672:5672"     # AMQP
-      - "15672:15672"   # painel de gerência
+      - "15672:15672"   # painel de gestão
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dist-net
+
+  broker-js:
+    build:
+      context: ../broker-js
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - dist-net
 
