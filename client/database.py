@@ -2,6 +2,7 @@ import psycopg2
 from psycopg2 import sql
 from dotenv import load_dotenv
 import os
+import json
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -35,7 +36,8 @@ def create_or_alter_user_table():
                     senha VARCHAR(256) NOT NULL,
                     posts_enviados JSONB DEFAULT '{}'::JSONB,
                     seguindo JSONB DEFAULT '[]'::JSONB,
-                    seguido_por JSONB DEFAULT '[]'::JSONB
+                    seguido_por JSONB DEFAULT '[]'::JSONB,
+                    mensagens_privadas JSONB DEFAULT '{}'::JSONB
                 );
             """)
 
@@ -54,6 +56,8 @@ def create_or_alter_user_table():
                 cur.execute("ALTER TABLE usuario ADD COLUMN seguindo JSONB DEFAULT '[]'::JSONB;")
             if 'seguido_por' not in existing_columns:
                 cur.execute("ALTER TABLE usuario ADD COLUMN seguido_por JSONB DEFAULT '[]'::JSONB;")
+            if 'mensagens_privadas' not in existing_columns:
+                cur.execute("ALTER TABLE usuario ADD COLUMN private_messages JSONB DEFAULT '{}'::JSONB;")
 
             conn.commit()
             print("Tabela 'usuario' criada ou alterada com sucesso.")
@@ -61,6 +65,37 @@ def create_or_alter_user_table():
         raise Exception(f"Erro ao criar ou alterar a tabela 'usuario': {e}")
     finally:
         conn.close()
+
+def get_mutuals(username):
+    conn = connect_to_db()
+    try:
+        with conn.cursor() as cur:
+            # Busca as duas listas JSONB
+            cur.execute("""
+                SELECT seguindo, seguido_por
+                  FROM usuario
+                 WHERE usuario_nome = %s
+            """, (username,))
+            row = cur.fetchone()
+            if not row:
+                return []
+
+            seguindo, seguido_por = row
+
+            # Se por acaso vier como string, converte a JSON Python
+            if isinstance(seguindo, str):
+                seguindo = json.loads(seguindo)
+            if isinstance(seguido_por, str):
+                seguido_por = json.loads(seguido_por)
+
+            # psycopg2 já converte JSONB em lista Python, então geralmente não precisa do loads
+
+            # Intersecção simples em Python
+            return [u for u in seguindo if u in seguido_por]
+    finally:
+        conn.close()
+
+
 
 # Chamar a função para criar ou alterar a tabela ao importar o módulo
 create_or_alter_user_table()

@@ -9,7 +9,7 @@ from tkinter import messagebox
 import sys
 import customtkinter
 
-from database import connect_to_db 
+from database import connect_to_db, get_mutuals
 
 # Variáveis globais para armazenar credenciais
 config = {
@@ -19,6 +19,10 @@ config = {
     'host':'HOST',
     'port':'26257'
 }
+
+print(get_mutuals("a"))
+print(get_mutuals("b"))
+print(get_mutuals("c"))
 
 # Função para criar conta
 def create_account():
@@ -206,7 +210,9 @@ def open_menu(username):
     # 1) Criar janela principal
     menu_window = customtkinter.CTkToplevel(root)
     menu_window.title(f"Bem-vindo, {username}")
-    menu_window.geometry("900x600")
+    menu_window.geometry(f"{900}x{600}")
+    menu_window.minsize(900,600)
+    menu_window.maxsize(900,600)
 
     # 2) Configurar grid (sidebar coluna 0, content_area coluna 1)
     menu_window.grid_rowconfigure(0, weight=1)
@@ -271,7 +277,6 @@ def open_menu(username):
             follow_frame, values=users, state="readonly", width=30
         )
         user_combobox.pack(pady=5)
-
 
         def submit_follow():
             follow = user_combobox.get().strip()
@@ -377,32 +382,130 @@ def open_menu(username):
             follow_frame, text="Seguir", command=submit_follow
         ).pack(pady=10)
 
-
-
-
     def private_message():
         limpar_conteudo()
-        # Container para exibir os posts
-        follow_frame = customtkinter.CTkFrame(content_area)
-        follow_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
+
+        # Container principal
+        pm_frame = customtkinter.CTkFrame(content_area)
+        pm_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
         # Título
-        customtkinter.CTkLabel(follow_frame, text="Mensagens Privadas", font=("Arial", 16)).pack(
-            anchor="w", pady=(0, 10)
-        )
+        customtkinter.CTkLabel(
+            pm_frame, text="Mensagens Privadas", font=("Arial", 16)
+        ).pack(anchor="w", pady=(0, 10))
 
-        
+        # 1) Combobox de mutuals
+        mutuals = get_mutuals(username)
+        combobox = ttk.Combobox(pm_frame, values=mutuals, state="readonly", width=30)
+        combobox.pack(pady=5)
 
-        
+        # 2) Área de chat (scrollable)
+        chat_frame = customtkinter.CTkScrollableFrame(pm_frame, height=300)
+        chat_frame.pack(fill="both", expand=True, pady=(10, 0))
+
+        def load_chat(event=None):
+            # limpa histórico
+            for w in chat_frame.winfo_children():
+                w.destroy()
+
+            other = combobox.get().strip()
+            if not other:
+                return
+
+            conn = connect_to_db()
+            try:
+                with conn.cursor() as cur:
+                    # 1) Puxa seu JSONB de private_messages
+                    cur.execute(
+                        "SELECT mensagens_privadas FROM usuario WHERE usuario_nome = %s",
+                        (username,)
+                    )
+                    row = cur.fetchone()
+                    my_pm = row[0] or {}
+                    if isinstance(my_pm, str):
+                        my_pm = json.loads(my_pm)
+
+                    # 2) Puxa o JSONB dele
+                    cur.execute(
+                        "SELECT mensagens_privadas FROM usuario WHERE usuario_nome = %s",
+                        (other,)
+                    )
+                    row2 = cur.fetchone()
+                    their_pm = row2[0] or {}
+                    if isinstance(their_pm, str):
+                        their_pm = json.loads(their_pm)
+
+                    # 3) Extrai as duas conversas
+                    my_convo    = my_pm.get(other, {})    # mensagens que você enviou
+                    their_convo = their_pm.get(username, {})  # mensagens que ele enviou
+
+                    # 4) Une tudo num único dicionário
+                    combined = {}
+                    combined.update(my_convo)
+                    combined.update(their_convo)
+
+                    # 5) Exibe em ordem cronológica
+                    for ts in sorted(combined):
+                        msg = combined[ts]
+                        tag = "Você" if msg["sender"] == username else msg["sender"]
+                        texto = f"{tag} ({ts[:19]}): {msg['content']}"
+                        customtkinter.CTkLabel(
+                            chat_frame,
+                            text=texto,
+                            wraplength=600,
+                            justify="left"
+                        ).pack(anchor="w", padx=5, pady=2)
+
+            finally:
+                conn.close()
 
 
+        # 3) Campo de entrada + botão Enviar
+        entry = customtkinter.CTkEntry(pm_frame, placeholder_text="Digite sua mensagem...")
+        entry.pack(fill="x", pady=(10, 0), padx=5)
 
+        def send_private():
+            other = combobox.get().strip()
+            text  = entry.get().strip()
+            if not other or not text:
+                messagebox.showerror("Erro", "Selecione um usuário e digite algo.")
+                return
 
+            ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            new_msg = { ts: {"sender": username, "content": text} }
 
+            conn = connect_to_db()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE usuario
+                           SET mensagens_privadas = jsonb_set(
+                                 mensagens_privadas,
+                                 %s,
+                                 COALESCE(mensagens_privadas #> %s, '{}'::jsonb) || %s::jsonb,
+                                 true
+                               )
+                         WHERE usuario_nome = %s
+                        """,
+                        (
+                            [other],            # caminho no JSON
+                            [other],            # idem para #>
+                            json.dumps(new_msg),
+                            username
+                        )
+                    )
+                    conn.commit()
+            finally:
+                conn.close()
 
+            entry.delete(0, "end")
+            load_chat()
 
+        combobox.bind("<<ComboboxSelected>>", load_chat) # vai aparecer as mensagens logo quando eu selecionar alguma pessoa
 
-
+        customtkinter.CTkButton(pm_frame, text="Enviar", command=send_private)\
+                       .pack(pady=5)
 
 
     def mostrar_post_feed():
@@ -542,10 +645,18 @@ def open_menu(username):
     customtkinter.CTkButton(
         sidebar, text="Seguir", command=follow_user).grid(
         row=1, column=0, padx=20, pady=10, sticky="ew")
-                                                                                              
+
     customtkinter.CTkButton(
         sidebar, text="Mensagens Privadas", command=private_message).grid(
-            row=2, column=0, padx=20, pady=10, sticky="ew")
+        row=2, column=0, padx=20, pady=10, sticky="ew")
+
+    customtkinter.CTkLabel(
+        sidebar, text="Modo de Aparência", anchor="w").grid(
+        row=4, column=0, padx=20, pady=(10, 0),sticky="s")
+
+    customtkinter.CTkOptionMenu(
+        sidebar, values=["Light", "Dark"], command=change_appearance_mode_event
+    ).grid(row=5, column=0, padx=20, pady=(10, 10), sticky="s")
 
     customtkinter.CTkButton(
         sidebar,
@@ -553,7 +664,7 @@ def open_menu(username):
         fg_color="transparent",
         text_color="red",
         command=menu_window.destroy,
-    ).grid(row=5, column=0, padx=20, pady=10, sticky="s")
+    ).grid(row=6, column=0, padx=20, pady=10, sticky="s")
 
     # Exibir o feed ao abrir
     mostrar_post_feed()
@@ -585,263 +696,15 @@ def encerrar_execucao():
 def change_appearance_mode_event(new_appearance_mode: str):
     customtkinter.set_appearance_mode(new_appearance_mode)
 
-# FINALIZADO
-def open_post_window(username):
-
-    # Criar a janela de postagem
-    post_window = tk.Toplevel(root)
-    post_window.title("Postar")
-
-    # Container para exibir os posts
-    posts_frame = tk.Frame(post_window) 
-    posts_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-    # Título
-    tk.Label(posts_frame, text="Posts", font=("Arial", 16)).pack()
-
-
-    conn = connect_to_db()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                # Obter os posts do usuário e das pessoas que ele segue
-                cur.execute("""
-                    SELECT usuario_nome, posts_enviados
-                    FROM usuario
-                    WHERE usuario_nome = %s OR usuario_nome = ANY(
-                        SELECT jsonb_array_elements_text(seguindo)
-                        FROM usuario
-                        WHERE usuario_nome = %s
-                    )
-                """, (username, username))
-                rows = cur.fetchall()
-
-                for row in rows:
-                    user, posts = row
-                    if posts:
-                        # Verificar se o valor é uma string antes de carregar como JSON
-                        if isinstance(posts, str):
-                            posts = json.loads(posts)
-                        for timestamp, post_data in posts.items():
-                            tk.Label(posts_frame, text=f"{user} ({timestamp}): {post_data['conteudo']}").pack(anchor="w")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao carregar posts: {e}")
-        finally:
-            conn.close()
-
-    # Container para criar um novo post
-    new_post_frame = tk.Frame(post_window)
-    new_post_frame.pack(fill=tk.X, padx=10, pady=10)
-
-    tk.Label(new_post_frame, text="Novo Post:").pack(anchor="w")
-    new_post_entry = tk.Entry(new_post_frame, width=50)
-    new_post_entry.pack(side=tk.LEFT, padx=5)
-
-    def submit_post():
-        content = new_post_entry.get().strip()
-        if not content:
-            messagebox.showerror("Erro", "O conteúdo do post não pode estar vazio.")
-            return
-
-        conn = connect_to_db()
-        if not conn:
-            messagebox.showerror("Erro", "Não foi possível conectar ao banco.")
-            return
-
-        try:
-            with conn.cursor() as cur:
-                # 1) Gere o timestamp e o ID do post
-                timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                post_id   = str(uuid.uuid4())
-
-                # 2) Monte o JSONB minimalista do novo post
-                novo_post = {
-                    timestamp: {
-                        "id_post": post_id,
-                        "conteudo": content
-                    }
-                }
-
-                # 3) Atualize atomically, adicionando só se a chave (timestamp) ainda não existir
-                cur.execute("""
-                    UPDATE usuario
-                    SET posts_enviados = posts_enviados || %s::jsonb
-                    WHERE usuario_nome = %s
-                    AND NOT EXISTS (
-                        SELECT 1
-                            FROM jsonb_object_keys(posts_enviados) AS key
-                            WHERE key = %s
-                    )
-                """, (json.dumps(novo_post), username, timestamp))
-                conn.commit()
-
-                # 4) Publica no RabbitMQ
-                rabbit_conn = pika.BlockingConnection(
-                    pika.ConnectionParameters(host="localhost")
-                )
-                ch = rabbit_conn.channel()
-                ch.exchange_declare(exchange="posts", exchange_type="fanout", durable=True)
-
-                post_msg = {
-                    "type":     "post",
-                    "postId":   post_id,
-                    "userId":   username,
-                    "content":  content,
-                    "timestamp": timestamp,
-                }
-                ch.basic_publish(
-                    exchange="posts",
-                    routing_key="",
-                    body=json.dumps(post_msg),
-                    properties=pika.BasicProperties(delivery_mode=2),
-                )
-                rabbit_conn.close()
-
-                # 5) Atualiza UI e limpa input
-                tk.Label(posts_frame, text=f"{username} ({timestamp}): {content}") \
-                .pack(anchor="w")
-                new_post_entry.delete(0, tk.END)
-                messagebox.showinfo("Sucesso", "Post enviado com sucesso!")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao enviar post: {e}")
-        finally:
-            conn.close()
-
-    tk.Button(new_post_frame, text="Postar", command=submit_post).pack(side=tk.LEFT, padx=5)
-# FINALIZADO
-def follow_user(username):
-    # Criar a janela para seguir outro usuário
-    follow_window = tk.Toplevel(root)
-    follow_window.title("Seguir Usuário")
-
-    # Título
-    tk.Label(follow_window, text="Seguir Usuário", font=("Arial", 16)).pack(pady=10)
-
-    # Obter a lista de usuários do banco de dados
-    conn = connect_to_db()
-    if not conn:
-        messagebox.showerror("Erro", "Erro ao conectar ao banco de dados.")
-        return
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT usuario_nome FROM usuario WHERE usuario_nome != %s", (username,))
-            users = [row[0] for row in cur.fetchall()]
-    except Exception as e:
-        messagebox.showerror("Erro", f"Erro ao carregar usuários: {e}")
-        follow_window.destroy()
-        return
-    finally:
-        conn.close()
-
-    # Verificar se há usuários disponíveis para seguir
-    if not users:
-        messagebox.showinfo("Informação", "Não há outros usuários disponíveis para seguir.")
-        follow_window.destroy()
-        return
-
-    # Campo de seleção para o nome do usuário a ser seguido
-    tk.Label(follow_window, text="Selecione o usuário que deseja seguir:").pack()
-    user_combobox = ttk.Combobox(follow_window, values=users, state="readonly", width=30)
-    user_combobox.pack(pady=5)
-
-    def submit_follow():
-        follow = user_combobox.get().strip()
-        if not follow:
-            messagebox.showerror("Erro", "Selecione um usuário para seguir.")
-            return
-
-        conn = connect_to_db()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    # Atualizar a lista de "seguindo" do usuário
-                    cur.execute(
-                        "SELECT seguindo FROM usuario WHERE usuario_nome = %s", (username,)
-                    )
-                    result = cur.fetchone()
-                    seguindo = json.loads(result[0]) if result and isinstance(result[0], str) else []
-
-                    if follow not in seguindo:
-                        seguindo.append(follow)
-                        cur.execute(
-                            """
-                            UPDATE usuario
-                            SET seguindo = seguindo || %s::jsonb
-                            WHERE usuario_nome = %s
-                            AND NOT EXISTS (
-                                SELECT 1
-                                FROM jsonb_array_elements_text(seguindo) AS elem(value)
-                                WHERE elem.value = %s
-                            )
-                            """,
-                            (json.dumps([follow]), username, follow),
-                        )
-
-                    # Atualizar a lista de "seguido_por" do usuário seguido
-                    cur.execute(
-                        "SELECT seguido_por FROM usuario WHERE usuario_nome = %s", (follow,)
-                    )
-                    result = cur.fetchone()
-                    seguido_por = json.loads(result[0]) if result and isinstance(result[0], str) else []
-
-                    if username not in seguido_por:
-                        seguido_por.append(username)
-                        cur.execute(
-                            """
-                            UPDATE usuario
-                            SET seguido_por = seguido_por || %s::jsonb
-                            WHERE usuario_nome = %s
-                            AND NOT EXISTS (
-                                SELECT 1
-                                FROM jsonb_array_elements_text(seguido_por) AS elem(value)
-                                WHERE elem.value = %s
-                            )
-                            """,
-                            (json.dumps([username]), follow, username),
-                        )
-
-                    conn.commit()
-
-                    # Conectar ao RabbitMQ e publicar o evento de follow
-                    rabbit_conn = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
-                    ch = rabbit_conn.channel()
-                    ch.exchange_declare(exchange="follows", exchange_type="fanout", durable=True)
-
-                    follow_msg = {
-                        "type": "follow",
-                        "followerId": username,
-                        "followedId": follow,
-                    }
-                    ch.basic_publish(
-                        exchange="follows",
-                        routing_key="",
-                        body=json.dumps(follow_msg),
-                        properties=pika.BasicProperties(delivery_mode=2),
-                    )
-                    rabbit_conn.close()
-
-                    messagebox.showinfo("Sucesso", f"Agora você está seguindo {follow}!")
-                    follow_window.destroy()
-            except Exception as e:
-                messagebox.showerror("Erro", f"Erro ao seguir usuário: {e}")
-            finally:
-                conn.close()
-
-    # Botão para confirmar o follow
-    tk.Button(follow_window, text="Seguir", command=submit_follow).pack(pady=10)
-
-    # Botão para fechar a janela
-    tk.Button(follow_window, text="Cancelar", command=follow_window.destroy).pack(pady=5)
-
-
-customtkinter.set_appearance_mode("dark")  # Modes: "System" (standard), "Dark", "Light"
+customtkinter.set_appearance_mode("Light")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
 # Interface gráfica
 root = customtkinter.CTk()
 root.title("FEICEBOOK")
-root.geometry(f"{300}x{300}")
+root.geometry(f"{400}x{380}")
+root.minsize(400, 380)
+root.maxsize(400, 380)
 
 
 # Frame para criar conta
@@ -859,6 +722,13 @@ entry_confirm_password.pack()
 customtkinter.CTkButton(frame_create_account, text="Criar Conta", command=create_account).pack(pady=10)
 customtkinter.CTkButton(frame_create_account, text="Já tem uma conta? Login", command=switch_to_login).pack()
 frame_create_account.pack()
+
+customtkinter.CTkLabel(frame_create_account, text="Modo de Aparência", anchor="w").pack(
+    padx=20, pady=(10, 0)
+)
+customtkinter.CTkOptionMenu(
+    frame_create_account, values=["Light", "Dark"], command=change_appearance_mode_event
+).pack(padx=20, pady=(10, 10))
 
 
 # Frame para login
@@ -878,9 +748,10 @@ customtkinter.CTkButton(frame_login, text="Login", command=login).pack(pady=10)
 customtkinter.CTkButton(frame_login, text="Criar Conta", command=switch_to_create_account).pack()
 
 
-root.appearance_mode_optionemenu.set("Dark")
-root.textbox = customtkinter.CTkTextbox(root, text_color="#296cc4", width=250)
-root.textbox.grid(row=1, column=1,padx=(20,20), pady=(10, 0),sticky='nsew')
+customtkinter.CTkLabel(frame_login, text="Modo de Aparência", anchor="w").pack(padx=20, pady=(10, 0))
+customtkinter.CTkOptionMenu(
+    frame_login, values=["Light", "Dark"], command=change_appearance_mode_event
+).pack(padx=20, pady=(10, 10))
 
 
 root.mainloop()
