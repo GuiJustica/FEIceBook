@@ -25,6 +25,26 @@ docker-compose down
 cd /caminho/para/projeto-dist/server-java/server/server/src/main/java/com/redesocial/server
 java ServerApplication
 ```
+
+### 3. Criar e abrir o ambiente virtual
+```
+python3 -m venv venv
+```
+### Ative o ambiente virtual 
+* Windows
+```
+venv\Scripts\activate
+```
+* Linux/Mac
+```
+source venv/bin/activate
+```
+### Instale as bibliotecas necessárias
+```
+pip install requirements.txt
+```
+
+
 ### 3. Abrir os clients
 ```
 cd /caminho/para/projeto-dist/client
