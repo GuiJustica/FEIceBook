@@ -4,7 +4,8 @@
 
 ###  [Docker](https://www.docker.com/)
 ### [NodeJS](https://nodejs.org/pt/download/current)
-
+### [Java](https://www.oracle.com/java/technologies/downloads/)
+### [Python](https://www.python.org/downloads/)
 
 ## Passo a passo de como rodar:
 
