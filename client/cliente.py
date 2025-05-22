@@ -401,6 +401,8 @@ def open_menu(username):
             pm_frame, text="Mensagens Privadas", font=("Arial", 16)
         ).pack(anchor="w", pady=(0, 10))
 
+        customtkinter.CTkLabel(pm_frame, text="Selecione o usuário que deseja conversar:").pack()
+
         # 1) Combobox de mutuals
         mutuals = get_mutuals(username)
         combobox = ttk.Combobox(pm_frame, values=mutuals, state="readonly", width=30)
@@ -548,13 +550,14 @@ def open_menu(username):
         limpar_conteudo()
 
         # Container para exibir os posts
-        posts_frame = customtkinter.CTkScrollableFrame(content_area)
+        posts_frame = customtkinter.CTkFrame(content_area)
         posts_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
         # Título
-        customtkinter.CTkLabel(posts_frame, text="Posts", font=("Arial", 16)).pack(
-            anchor="w", pady=(0, 10)
-        )
+        customtkinter.CTkLabel(posts_frame, text="Posts", font=("Arial", 16)).pack(anchor="w", pady=(0, 10))
+
+        post_frame = customtkinter.CTkScrollableFrame(posts_frame, height=300)
+        post_frame.pack(fill="both", expand=True, pady=(10, 0))
 
         # Conectar ao banco e buscar posts
         conn = connect_to_db()
@@ -580,7 +583,7 @@ def open_menu(username):
                             if isinstance(posts, str):
                                 posts = json.loads(posts)
                             for timestamp, post_data in posts.items():
-                                customtkinter.CTkLabel(posts_frame, text=f"{user} ({timestamp}): {post_data['conteudo']}").pack(anchor="w")
+                                customtkinter.CTkLabel(post_frame, text=f"{user} ({timestamp}): {post_data['conteudo']}").pack(anchor="w")
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao carregar posts: {e}")
             finally:
@@ -590,11 +593,10 @@ def open_menu(username):
         new_post_frame = customtkinter.CTkFrame(content_area)
         new_post_frame.pack(fill="x", padx=10, pady=10)
 
-        customtkinter.CTkLabel(new_post_frame, text="Novo Post:").pack(anchor="w")
         new_post_entry = customtkinter.CTkEntry(
             new_post_frame, width=400, placeholder_text="Digite seu post aqui"
         )
-        new_post_entry.pack(side="left", padx=(0, 10))
+        new_post_entry.pack(fill="x", pady=(10, 0), padx=5)
 
         def submit_post():
             content = new_post_entry.get().strip()
@@ -656,12 +658,12 @@ def open_menu(username):
 
                 # 5) Atualiza UI
                 customtkinter.CTkLabel(
-                    posts_frame,
+                    post_frame,
                     text=f"{username} ({timestamp}): {content}",
                     anchor="w",
                     justify="left",
                     wraplength=600,
-                ).pack(fill="x", padx=5, pady=2)
+                ).pack(fill="x")
                 new_post_entry.delete(0, "end")
                 messagebox.showinfo("Sucesso", "Post enviado com sucesso!")
             except Exception as e:
@@ -671,7 +673,7 @@ def open_menu(username):
 
         customtkinter.CTkButton(
             new_post_frame, text="Postar", command=submit_post
-        ).pack(side="left", padx=5)
+        ).pack(pady=5)
 
     # Botões da sidebar
     customtkinter.CTkButton(
