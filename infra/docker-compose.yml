@@ -25,6 +25,9 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
     command: ["java", "-jar", "server.jar"]
+    deploy:
+      mode: replicated
+      replicas: 3
 
   xhost:
     image: ubuntu:22.04
@@ -49,6 +52,10 @@ services:
       - DISPLAY=${DISPLAY}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    deploy:
+      mode: replicated
+      replicas: 5
+
 
   broker-js:
     build:

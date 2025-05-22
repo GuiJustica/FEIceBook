@@ -111,7 +111,7 @@ def start_client(user_id):
     print(f"\nVocê ({user_id}) vai seguir: {follow}\n")
 
     # Conectar ao RabbitMQ
-    conn = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+    conn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
     ch = conn.channel()
 
     # Declarar ambas as exchanges
@@ -141,7 +141,7 @@ def start_client(user_id):
 
     # Thread para escutar a exchange 'posts'
     def start_listener():
-        lconn = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+        lconn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
         lch = lconn.channel()
         lch.exchange_declare(exchange='posts', exchange_type='fanout', durable=True)
         q = lch.queue_declare('', exclusive=True).method.queue
@@ -181,7 +181,7 @@ def start_client(user_id):
 def start_rabbitmq_listener(username):
     try:
         # Conectar ao RabbitMQ
-        conn = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+        conn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
         ch = conn.channel()
 
         # Declarar a exchange de posts
@@ -354,7 +354,7 @@ def open_menu(username):
 
                         # Conectar ao RabbitMQ e publicar o evento de follow
                         rabbit_conn = pika.BlockingConnection(
-                            pika.ConnectionParameters(host="localhost")
+                            pika.ConnectionParameters(host="rabbitmq")
                         )
                         ch = rabbit_conn.channel()
                         ch.exchange_declare(
@@ -373,16 +373,21 @@ def open_menu(username):
                             body=json.dumps(follow_msg),
                             properties=pika.BasicProperties(delivery_mode=2),
                         )
-                        rabbit_conn.close()
-
+                        
                         messagebox.showinfo(
                             "Sucesso", f"Agora você está seguindo {follow}!"
                         )
+                        rabbit_conn.close()
+                        
                         # follow_window.destroy()
                 except Exception as e:
                     messagebox.showerror("Erro", f"Erro ao seguir usuário: {e}")
+                    
                 finally:
                     conn.close()
+                    
+                    
+
 
         # Botão para confirmar o follow
         customtkinter.CTkButton(
@@ -508,7 +513,7 @@ def open_menu(username):
 
                     # SALVAR TUDO QUE ACONTECE NO SERVIDOR:
                     rabbit_conn = pika.BlockingConnection(
-                        pika.ConnectionParameters(host="localhost")
+                        pika.ConnectionParameters(host="rabbitmq")
                     )
                     ch = rabbit_conn.channel()
                     # garanta que a exchange existe:
@@ -566,15 +571,18 @@ def open_menu(username):
                 with conn.cursor() as cur:
                     # Obter os posts do usuário e das pessoas que ele segue
                     cur.execute("""
-                        SELECT usuario_nome, posts_enviados
+                        SELECT usuario_nome, posts_enviados 
                         FROM usuario
                         WHERE usuario_nome = %s OR usuario_nome = ANY(
                             SELECT jsonb_array_elements_text(seguindo)
                             FROM usuario
-                            WHERE usuario_nome = %s
+                            WHERE usuario_nome = %s       
                         )
                     """, (username, username))
                     rows = cur.fetchall()
+
+                    # Lista para armazenar todos os posts com timestamps
+                    all_posts = []
 
                     for row in rows:
                         user, posts = row
@@ -582,8 +590,22 @@ def open_menu(username):
                             # Verificar se o valor é uma string antes de carregar como JSON
                             if isinstance(posts, str):
                                 posts = json.loads(posts)
+
                             for timestamp, post_data in posts.items():
-                                customtkinter.CTkLabel(post_frame, text=f"{user} ({timestamp}): {post_data['conteudo']}").pack(anchor="w")
+                                all_posts.append((timestamp, user, post_data['conteudo']))
+
+                    # Ordenar todos os posts por timestamp
+                    all_posts.sort(key=lambda x: x[0])
+
+                    # Exibir os posts em ordem cronológica
+                    for timestamp, user, content in all_posts:
+                        customtkinter.CTkLabel(
+                            post_frame,
+                            text=f"{user} ({timestamp}): {content}",
+                            anchor="w",
+                            justify="left",
+                            wraplength=600
+                        ).pack(anchor="w")
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao carregar posts: {e}")
             finally:
@@ -634,7 +656,7 @@ def open_menu(username):
 
                 # 4) RabbitMQ
                 rabbit_conn = pika.BlockingConnection(
-                    pika.ConnectionParameters(host="localhost")
+                    pika.ConnectionParameters(host="rabbitmq")
                 )
                 ch = rabbit_conn.channel()
                 ch.exchange_declare(
@@ -654,7 +676,7 @@ def open_menu(username):
                     ),
                     properties=pika.BasicProperties(delivery_mode=2),
                 )
-                rabbit_conn.close()
+                
 
                 # 5) Atualiza UI
                 customtkinter.CTkLabel(
@@ -666,6 +688,7 @@ def open_menu(username):
                 ).pack(fill="x")
                 new_post_entry.delete(0, "end")
                 messagebox.showinfo("Sucesso", "Post enviado com sucesso!")
+                rabbit_conn.close()
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao enviar post: {e}")
             finally:
