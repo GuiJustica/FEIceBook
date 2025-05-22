@@ -1,5 +1,5 @@
 # Rede Social FEIceBOOK 
-aaaaaaaa
+
 ## Autores do Projeto
 * Felipe Orlando Lanzara - 24.122.055-7
 * Guilherme Marcato Mendes Justiça - 24.122.045-8
@@ -16,7 +16,14 @@ aaaaaaaa
 
 ## Passo a passo de como rodar:
 
-### 1.  Abrir o docker
+### 1.  Abrir o docker (linux)
+### Com o linux, pode ignorar o resto
+```
+cd /caminho/para/projeto-dist/infra
+sudo docker compose up --build -d
+```
+
+### 1.1 Abrir o docker (windows)
 ```
 cd /caminho/para/projeto-dist/infra
 docker-compose up -d --build rabbitmq broker-js
@@ -26,7 +33,6 @@ Se for a segunda vez tentando abrir o docker, será necessário fechar o antigo
 ```
 docker-compose down
 ```
-
 ### 2. Abrir o servidor 
 ```
 cd /caminho/para/projeto-dist/server-java/server/server/src/main/java/com/redesocial/server
