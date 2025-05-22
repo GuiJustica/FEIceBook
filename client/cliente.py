@@ -246,7 +246,7 @@ def open_menu(username):
         follow_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
         # Título
-        customtkinter.CTkLabel(follow_frame, text="Seguindo", font=("Arial", 16)).pack(
+        customtkinter.CTkLabel(follow_frame, text="   Seguindo   ", font=("Arial", 16)).pack(
             anchor="w", pady=(0, 10)
         )
 
@@ -278,7 +278,7 @@ def open_menu(username):
             return
 
         # Campo de seleção para o nome do usuário a ser seguido
-        customtkinter.CTkLabel(follow_frame, text="Selecione o usuário que deseja seguir:").pack()
+        customtkinter.CTkLabel(follow_frame, text="   Selecione o usuário que deseja seguir:   ").pack()
         user_combobox = ttk.Combobox(
             follow_frame, values=users, state="readonly", width=30
         )
@@ -398,10 +398,10 @@ def open_menu(username):
 
         # Título
         customtkinter.CTkLabel(
-            pm_frame, text="Mensagens Privadas", font=("Arial", 16)
+            pm_frame, text="   Mensagens Privadas   ", font=("Arial", 16)
         ).pack(anchor="w", pady=(0, 10))
 
-        customtkinter.CTkLabel(pm_frame, text="Selecione o usuário que deseja conversar:").pack()
+        customtkinter.CTkLabel(pm_frame, text="   Selecione o usuário que deseja conversar:   ").pack()
 
         # 1) Combobox de mutuals
         mutuals = get_mutuals(username)
@@ -477,7 +477,7 @@ def open_menu(username):
             other = combobox.get().strip()
             text  = entry.get().strip()
             if not other or not text:
-                messagebox.showerror("Erro", "Selecione um usuário e digite algo.")
+                messagebox.showerror("Erro", "   Selecione um usuário e digite algo.")
                 return
 
             ts = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
@@ -554,7 +554,7 @@ def open_menu(username):
         posts_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
         # Título
-        customtkinter.CTkLabel(posts_frame, text="Posts", font=("Arial", 16)).pack(anchor="w", pady=(0, 10))
+        customtkinter.CTkLabel(posts_frame, text="   Posts    ", font=("Arial", 16)).pack(anchor="w", pady=(0, 10))
 
         post_frame = customtkinter.CTkScrollableFrame(posts_frame, height=300)
         post_frame.pack(fill="both", expand=True, pady=(10, 0))
