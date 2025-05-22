@@ -39,4 +39,22 @@ public class RabbitConfig {
     public Binding followsBinding(FanoutExchange followsExchange, Queue followsQueue) {
         return BindingBuilder.bind(followsQueue).to(followsExchange);
     }
+
+    
+    @Bean
+    public FanoutExchange privateMessagesExchange() { // exchange para mensagens privadas
+        return new FanoutExchange("private_messages");
+    }
+
+    @Bean
+    public Queue privateMessagesQueue() { // fila que o servidor vai consumir
+        return new Queue("private_messages.queue", true);
+    }
+
+    @Bean
+    public Binding privateMessagesBinding(FanoutExchange privateMessagesExchange, Queue privateMessagesQueue) { // binding entre exchange e fila
+        return BindingBuilder.bind(privateMessagesQueue).to(privateMessagesExchange);
+    }
+
+
 }

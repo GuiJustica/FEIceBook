@@ -8,7 +8,8 @@ from tkinter import ttk
 from tkinter import messagebox
 import sys
 import customtkinter
-
+from tkinter import PhotoImage
+import pytz
 from database import connect_to_db, get_mutuals
 
 # Variáveis globais para armazenar credenciais
@@ -121,7 +122,8 @@ def start_client(user_id):
     follow_msg = {
         "type": "follow",
         "followerId": user_id,
-        "followedId": follow
+        "followedId": follow,
+        "timestamp": datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
     }
     ch.basic_publish(
         exchange='follows',
@@ -163,7 +165,7 @@ def start_client(user_id):
             "postId": str(uuid.uuid4()),
             "userId": user_id,
             "content": content,
-            "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+            "timestamp": datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
         }
         ch.basic_publish(
             exchange='posts',
@@ -213,6 +215,10 @@ def open_menu(username):
     menu_window.geometry(f"{900}x{600}")
     menu_window.minsize(900,600)
     menu_window.maxsize(900,600)
+
+
+    customtkinter.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
+    customtkinter.set_default_color_theme("pink.json")  # Themes: "blue" (standard), "green", "dark-blue"
 
     # 2) Configurar grid (sidebar coluna 0, content_area coluna 1)
     menu_window.grid_rowconfigure(0, weight=1)
@@ -359,6 +365,7 @@ def open_menu(username):
                             "type": "follow",
                             "followerId": username,
                             "followedId": follow,
+                            "timestamp": datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
                         }
                         ch.basic_publish(
                             exchange="follows",
@@ -471,7 +478,7 @@ def open_menu(username):
                 messagebox.showerror("Erro", "Selecione um usuário e digite algo.")
                 return
 
-            ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            ts = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
             new_msg = { ts: {"sender": username, "content": text} }
 
             conn = connect_to_db()
@@ -496,6 +503,35 @@ def open_menu(username):
                         )
                     )
                     conn.commit()
+
+                    # SALVAR TUDO QUE ACONTECE NO SERVIDOR:
+                    rabbit_conn = pika.BlockingConnection(
+                        pika.ConnectionParameters(host="localhost")
+                    )
+                    ch = rabbit_conn.channel()
+                    # garanta que a exchange existe:
+                    ch.exchange_declare(
+                        exchange="private_messages",
+                        exchange_type="fanout",
+                        durable=True
+                    )
+
+                    private_msg = {
+                        "type":      "private",
+                        "sender":    username,
+                        "recipient": other,
+                        "content":   text,
+                        "timestamp": ts
+                    }
+
+                    ch.basic_publish(
+                        exchange="private_messages",
+                        routing_key="",            # fanout ignora routing key
+                        body=json.dumps(private_msg),
+                        properties=pika.BasicProperties(delivery_mode=2)
+                    )
+                    rabbit_conn.close()
+
             finally:
                 conn.close()
 
@@ -573,7 +609,7 @@ def open_menu(username):
 
             try:
                 # 1) Timestamp e ID
-                timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                timestamp = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
                 post_id = str(uuid.uuid4())
                 # 2) JSONB
                 novo_post = {timestamp: {"id_post": post_id, "conteudo": content}}
@@ -650,19 +686,11 @@ def open_menu(username):
         sidebar, text="Mensagens Privadas", command=private_message).grid(
         row=2, column=0, padx=20, pady=10, sticky="ew")
 
-    customtkinter.CTkLabel(
-        sidebar, text="Modo de Aparência", anchor="w").grid(
-        row=4, column=0, padx=20, pady=(10, 0),sticky="s")
-
-    customtkinter.CTkOptionMenu(
-        sidebar, values=["Light", "Dark"], command=change_appearance_mode_event
-    ).grid(row=5, column=0, padx=20, pady=(10, 10), sticky="s")
-
     customtkinter.CTkButton(
         sidebar,
         text="Sair",
         fg_color="transparent",
-        text_color="red",
+        text_color="#a31545",
         command=menu_window.destroy,
     ).grid(row=6, column=0, padx=20, pady=10, sticky="s")
 
@@ -696,15 +724,16 @@ def encerrar_execucao():
 def change_appearance_mode_event(new_appearance_mode: str):
     customtkinter.set_appearance_mode(new_appearance_mode)
 
-customtkinter.set_appearance_mode("Light")  # Modes: "System" (standard), "Dark", "Light"
-customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
+customtkinter.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
+customtkinter.set_default_color_theme("pink.json")  # Themes: "blue" (standard), "green", "dark-blue"
 
 # Interface gráfica
+
 root = customtkinter.CTk()
 root.title("FEICEBOOK")
-root.geometry(f"{400}x{380}")
-root.minsize(400, 380)
-root.maxsize(400, 380)
+root.geometry(f"{400}x{300}")
+root.minsize(400, 300)
+root.maxsize(400, 300)
 
 
 # Frame para criar conta
@@ -723,12 +752,7 @@ customtkinter.CTkButton(frame_create_account, text="Criar Conta", command=create
 customtkinter.CTkButton(frame_create_account, text="Já tem uma conta? Login", command=switch_to_login).pack()
 frame_create_account.pack()
 
-customtkinter.CTkLabel(frame_create_account, text="Modo de Aparência", anchor="w").pack(
-    padx=20, pady=(10, 0)
-)
-customtkinter.CTkOptionMenu(
-    frame_create_account, values=["Light", "Dark"], command=change_appearance_mode_event
-).pack(padx=20, pady=(10, 10))
+
 
 
 # Frame para login
@@ -748,10 +772,7 @@ customtkinter.CTkButton(frame_login, text="Login", command=login).pack(pady=10)
 customtkinter.CTkButton(frame_login, text="Criar Conta", command=switch_to_create_account).pack()
 
 
-customtkinter.CTkLabel(frame_login, text="Modo de Aparência", anchor="w").pack(padx=20, pady=(10, 0))
-customtkinter.CTkOptionMenu(
-    frame_login, values=["Light", "Dark"], command=change_appearance_mode_event
-).pack(padx=20, pady=(10, 10))
+
 
 
 root.mainloop()

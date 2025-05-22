@@ -15,4 +15,10 @@ public class PostListener {
     public void onFollowReceived(String message) {
         System.out.println("[Servidor] Follow recebido: " + message);
     }
+
+    @RabbitListener(queues = "private_messages.queue")
+    public void onPrivateMessageReceived(String message) {
+        System.out.println("[Servidor] Mensagem privada recebida: " + message);
+    }
+    
 }

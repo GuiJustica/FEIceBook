@@ -3,8 +3,8 @@ services:
     image: rabbitmq:3-management
     container_name: rabbit
     ports:
-      - "5672:5672"     # AMQP
-      - "15672:15672"   # painel de gestão
+      - "5672:5672"
+      - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "status"]
       interval: 5s
@@ -16,6 +16,13 @@ services:
   broker-js:
     build:
       context: ../broker-js
+      dockerfile: Dockerfile
+    # Aponte para o .env que está em ../client/.env e monte-o no container
+    env_file:
+      - ../client/.env
+    volumes:
+      - ../broker-js:/app
+      - ../client/.env:/app/.env:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
