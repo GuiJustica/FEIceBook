@@ -47,17 +47,17 @@ def create_or_alter_user_table():
                 FROM information_schema.columns
                 WHERE table_name = 'usuario';
             """)
-            existing_columns = [row[0] for row in cur.fetchall()]
+            # existing_columns = [row[0] for row in cur.fetchall()]
 
             # Adicionar colunas que não existem
-            if 'posts_enviados' not in existing_columns:
-                cur.execute("ALTER TABLE usuario ADD COLUMN posts_enviados JSONB DEFAULT '{}'::JSONB;")
-            if 'seguindo' not in existing_columns:
-                cur.execute("ALTER TABLE usuario ADD COLUMN seguindo JSONB DEFAULT '[]'::JSONB;")
-            if 'seguido_por' not in existing_columns:
-                cur.execute("ALTER TABLE usuario ADD COLUMN seguido_por JSONB DEFAULT '[]'::JSONB;")
-            if 'mensagens_privadas' not in existing_columns:
-                cur.execute("ALTER TABLE usuario ADD COLUMN private_messages JSONB DEFAULT '{}'::JSONB;")
+            # if 'posts_enviados' not in existing_columns:
+            #     cur.execute("ALTER TABLE IF NOT EXISTS usuario ADD COLUMN posts_enviados JSONB DEFAULT '{}'::JSONB;")
+            # if 'seguindo' not in existing_columns:
+            #     cur.execute("ALTER TABLE IF NOT EXISTS usuario ADD COLUMN seguindo JSONB DEFAULT '[]'::JSONB;")
+            # if 'seguido_por' not in existing_columns:
+            #     cur.execute("ALTER TABLE IF NOT EXISTS usuario ADD COLUMN seguido_por JSONB DEFAULT '[]'::JSONB;")
+            # if 'mensagens_privadas' not in existing_columns:
+            #     cur.execute("ALTER TABLE IF NOT EXISTS usuario ADD COLUMN private_messages JSONB DEFAULT '{}'::JSONB;")
 
             conn.commit()
             print("Tabela 'usuario' criada ou alterada com sucesso.")
