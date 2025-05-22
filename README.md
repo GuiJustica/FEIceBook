@@ -26,12 +26,12 @@ sudo docker compose up --build -d
 ### 1.1 Abrir o docker (windows)
 ```
 cd /caminho/para/projeto-dist/infra
-docker-compose up -d --build rabbitmq broker-js
-docker-compose logs -f broker-js
+docker compose up -d --build rabbitmq broker-js
+docker compose logs -f broker-js
 ```
 Se for a segunda vez tentando abrir o docker, será necessário fechar o antigo
 ```
-docker-compose down
+docker compose down
 ```
 ### 2. Abrir o servidor 
 ```
