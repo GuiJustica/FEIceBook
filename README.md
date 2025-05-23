@@ -6,7 +6,7 @@
 * João Vitor Governatore - 24.122.027-6
 * Paulo Vincius Araujo Feitosa - 24.122.042-5
 
-
+a
 ## Pré requisitos para rodar o programa
 
 ### [Docker](https://www.docker.com/)
