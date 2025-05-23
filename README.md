@@ -46,3 +46,15 @@ Para executar o nosso projeto, qpor ele utilizar uma interface gráfica desenvol
 Ao iniciar o projeto, o Docker carregará todos os containers, criando automaticamente cinco clientes e três servidores:
 ![clientes](https://cdn.discordapp.com/attachments/1372327706980651028/1375517572056743986/image.png?ex=6831fa11&is=6830a891&hm=d588b80992cb42e55c8507f381b59a4e8b93e2c8250cae5c9aed519dc3c4eacd&)
 ![servidores](https://cdn.discordapp.com/attachments/1372327706980651028/1375518225449615420/image.png?ex=6831faac&is=6830a92c&hm=02f8e6310ee20bd140dc6c55ef25a46e868d27e596391fbc5fe948c0fb4f1877&)
+
+### Cadastro dos usuários:
+Apenas será realizado o cadastro do usuário ao preencher o ```Usuário```, ```Senha``` e ```Confirmar Senha```. O ```usuário``` deve ser único.
+![Cadastro sem nada](https://cdn.discordapp.com/attachments/1372327706980651028/1375519001681072189/image.png?ex=6831fb65&is=6830a9e5&hm=1f1daf930cd00259886334279fa8d5c32e62cc395571b5db0701666d2ec2015b&)
+
+Cadastro com todas as informações preenchidas:
+![Cadastro correto](https://cdn.discordapp.com/attachments/1372327706980651028/1375519277372805291/image.png?ex=6831fba7&is=6830aa27&hm=b03e2ac14d52732807fbff8cb1b849c1794eac51d6c5638ca11a51b2aad71436&)
+
+Após o cadastro do usuário será salvo suas informações no banco de dados ```CockroachDB```, com a seguinte tabela ```usuario```:
+![Banco de dados cadastro](https://cdn.discordapp.com/attachments/1372327706980651028/1375519600443396167/image.png?ex=6831fbf4&is=6830aa74&hm=17e404e5e9741febc06849c6f813aa8e384192dcda10b2f6351fe1ef1047b462&)
+
+
