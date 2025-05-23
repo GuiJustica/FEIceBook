@@ -43,6 +43,8 @@ Para executar o nosso projeto, qpor ele utilizar uma interface gráfica desenvol
 ---
 
 # Explicação do funcionamento do projeto
+Sempre que um ```post``` for realizado, um usuário for ```seguido``` ou uma ```mensagem privada``` for enviada, a ação será exibida tanto na ```interface gráfica``` quanto nos ```servidores``` e no ```broker```. Os servidores receberão a notificação, seguindo a ordem de inicialização — neste caso, o servidor 1 receberá primeiro, seguido pelo servidor 3 e, por último, pelo servidor 2.
+
 Ao iniciar o projeto, o Docker carregará todos os containers, criando automaticamente cinco clientes e três servidores:
 ![clientes](https://cdn.discordapp.com/attachments/1372327706980651028/1375517572056743986/image.png?ex=6831fa11&is=6830a891&hm=d588b80992cb42e55c8507f381b59a4e8b93e2c8250cae5c9aed519dc3c4eacd&)
 ![servidores](https://cdn.discordapp.com/attachments/1372327706980651028/1375518225449615420/image.png?ex=6831faac&is=6830a92c&hm=02f8e6310ee20bd140dc6c55ef25a46e868d27e596391fbc5fe948c0fb4f1877&)
@@ -84,6 +86,9 @@ Ao postar alguma mensagem, aparecerá essa mensagem no canto ao lado, e todas as
 
 ![Post](https://cdn.discordapp.com/attachments/1372327706980651028/1375523082516566107/image.png?ex=6831ff32&is=6830adb2&hm=23df535cd931cdb66b47c53c872aeabddc07f46e57124c877c1d12e7d1cae642&)
 
+> ### Atenção!!
+> Para verificar que os posts estão sendo atualizadas, é necessário clicar novamente no botão de ```postar```!
+
 > ### Observação:  
 > Criei outra conta com o usuário ```felipe``` para mostrar o funcionamento do seguir
 
@@ -112,4 +117,20 @@ Banco de Dados atualizado:
 
 ![banco de dados atualizado](https://cdn.discordapp.com/attachments/1372327706980651028/1375527800785731635/image.png?ex=68320397&is=6830b217&hm=211f28e1273ee66863d3c861369a5bd32cab8e6ad7c3528554a709596209efe0&)
 
+### ```joao``` enviando mensagem privada para o ```felipe```:
+
+![mensagem privada joao](https://cdn.discordapp.com/attachments/1372327706980651028/1375528511837573272/image.png?ex=68320441&is=6830b2c1&hm=0fc0405db7c6646c37735a3cedb2a8efb15786f83e42d8a1bbe1c9fafc65ec81&)
+
+### ```felipe``` mandando mensagem para o ```joao```
+
+![mensagem privada felipe](https://cdn.discordapp.com/attachments/1372327706980651028/1375529689946259577/image.png?ex=6832055a&is=6830b3da&hm=0492f71725c7810add2f9d22e0a8308eeb35553056f6b619512c11b3f2920fd5&)
+
+Banco de dados atualizado com as ```mensagens privadas```:
+
+![Banco de dados mensagens privadas](https://cdn.discordapp.com/attachments/1372327706980651028/1375530151047331930/image.png?ex=683205c8&is=6830b448&hm=aeb7edba95548d464b561c24826bf546827bf8a8a6815df95b1bfa409df826f3&)
+
+> ### Atenção!!
+> Para verificar que as mensagens privadas estão sendo atualizadas, é necessário clicar novamente no botão de ```mensagens privadas``` e clicar na caixa de seleção do usuário que deseja conversar!
+
+---
 
