@@ -23,7 +23,7 @@ Formato do arquivo ```.env``` que deverá ser criado:
 
 ## Passo a passo de como rodar o projeto:
 
-Para executar o nosso projeto, que utiliza interface gráfica desenvolvida com ```Tkinter``` (biblioteca nativa do Python), é necessário rodá-lo em um ambiente ```Linux``` ou, alternativamente, em um terminal ```WSL``` (Windows Subsystem for Linux) que simule um ambiente Linux.
+Para executar o nosso projeto, qpor ele utilizar uma interface gráfica desenvolvida com ```Tkinter``` (biblioteca nativa do Python), é necessário rodá-lo em um ambiente ```Linux``` ou, alternativamente, em um terminal ```WSL``` (Windows Subsystem for Linux) que simule um ambiente Linux.
 
 
 ### 1.  Acesse o diretório do projeto onde se encontra o arquivo ```docker-compose.yml```:
