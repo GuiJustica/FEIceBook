@@ -7,19 +7,24 @@ import java.util.Random;
 @Component
 public class PhysicalTimestampService {
     private final Random rnd = new Random();
-    private long offsetMs = 0; // campo que acumula o drift aplicado (ms)
+    private long offsetMs = 0;
 
-    // Retorna o timestamp atual, aplicando em 30% dos casos um drift de ±1 min que acumula em offsetMs 
+    /** Retorna o timestamp corrente **sem** aplicar novo drift */
     public Instant getTimestamp() {
-        if (rnd.nextDouble() < 0.3) {
-            long delta = (rnd.nextBoolean() ? 1 : -1) * 60_000L; // atrasa 1 minuto
-            offsetMs += delta;
-            System.out.println("Simulando erro físico de " + (delta/1000) + " s (offset atual = " + (offsetMs/1000) + " s)");
-        }
         return Instant.ofEpochMilli(System.currentTimeMillis() + offsetMs);
     }
 
-    // zera o drift acumulado (chamado pelo BerkeleySyncService)
+    /** Chame **só** quando quiser injetar um erro físico de 30% ±1min */
+    public void applyRandomDrift() {
+        if (rnd.nextDouble() < 0.3) {
+            long delta = (rnd.nextBoolean() ? 60_000L : -60_000L);
+            offsetMs += delta;
+            System.out.printf("[Drift] aplicando %d s (offset atual = %d s)%n",
+                              delta/1000, offsetMs/1000);
+        }
+    }
+
+    /** Zera o erro acumulado — use após Berkeley sync */
     public void resetOffset() {
         offsetMs = 0;
     }

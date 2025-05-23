@@ -2,6 +2,8 @@ import pika
 import json
 import uuid
 import datetime
+import random
+from datetime import datetime, timedelta
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -11,6 +13,34 @@ import customtkinter
 from tkinter import PhotoImage
 import pytz
 from database import connect_to_db, get_mutuals
+
+class PhysicalClock:
+    def __init__(self):
+        self.offset = timedelta(0)
+
+    def now(self):
+        # 30% de chance de drift ±1 s
+        if random.random() < 0.3:
+            delta = timedelta(seconds=random.choice([-1, 1]))
+            self.offset += delta
+            print(f"[Drift] aplicando {delta.total_seconds()}s, offset={self.offset.total_seconds()}s")
+        return datetime.now(pytz.timezone("America/Sao_Paulo")) + self.offset
+
+class LogicalClock:
+    def __init__(self):
+        self.counter = 0
+
+    def tick(self):
+        self.counter += 1
+        return self.counter
+
+    def update(self, remote_ts):
+        self.counter = max(self.counter, remote_ts) + 1
+        return self.counter
+
+# instâncias globais
+phy_clock = PhysicalClock()
+lamport   = LogicalClock()
 
 # Variáveis globais para armazenar credenciais
 config = {
@@ -107,104 +137,141 @@ def switch_to_create_account():
 
 # Função principal do cliente
 def start_client(user_id):
-    follow = input(f"Digite o userId de quem {user_id} quer seguir: ").strip()
-    print(f"\nVocê ({user_id}) vai seguir: {follow}\n")
-
-    # Conectar ao RabbitMQ
-    conn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-    ch = conn.channel()
-
-    # Declarar ambas as exchanges
-    ch.exchange_declare(exchange='follows', exchange_type='fanout', durable=True)
-    ch.exchange_declare(exchange='posts', exchange_type='fanout', durable=True)
-
-    # Publicar o evento de follow
+    # 1) publica um follow de exemplo (igual ao seu)
+    ts_phys = phy_clock.now().isoformat()
+    ts_lamp = lamport.tick()
+    props   = pika.BasicProperties(delivery_mode=2,
+                                   headers={'logicalTimestamp': ts_lamp})
     follow_msg = {
-        "type": "follow",
+        "type":       "follow",
         "followerId": user_id,
-        "followedId": follow,
-        "timestamp": datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
+        "followedId": "outro_usuario",
+        "timestamp":  ts_phys
     }
-    ch.basic_publish(
-        exchange='follows',
-        routing_key='',
-        body=json.dumps(follow_msg),
-        properties=pika.BasicProperties(delivery_mode=2)
-    )
-    print(f"[Você] Agora segue: {follow}")
+    conn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+    ch   = conn.channel()
+    ch.exchange_declare(exchange='follows', exchange_type='fanout', durable=True)
+    ch.basic_publish(exchange='follows', routing_key='', body=json.dumps(follow_msg), properties=props)
+    print(f"[Você → Follow] fis={ts_phys} lamp={ts_lamp}")
 
-    # Função que trata cada post recebido
+    # 2) listener de follows
+    def on_follow(ch, method, props, body):
+        remote = props.headers.get('logicalTimestamp', 0)
+        local  = lamport.update(remote)
+        msg    = json.loads(body)
+        print(f"[Lamport Cliente] Follow remoto={remote} → local={local}")
+        print(f"[Notificação] {msg['followerId']} seguiu {msg['followedId']}")
+
+    def follow_listener():
+        fconn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        fch   = fconn.channel()
+        fch.exchange_declare(exchange='follows', exchange_type='fanout', durable=True)
+        qf = fch.queue_declare('', exclusive=True).method.queue
+        fch.queue_bind(exchange='follows', queue=qf)
+        fch.basic_consume(queue=qf, on_message_callback=on_follow, auto_ack=True)
+        fch.start_consuming()
+
+    threading.Thread(target=follow_listener, daemon=True).start()
+
+    # 3) listener de posts
     def on_post(ch, method, props, body):
-        msg = json.loads(body)
-        if msg.get("userId") == follow:
-            print(f"\n[Notificação] {follow} postou: {msg['content']}\n> ", end="")
+        remote = props.headers.get('logicalTimestamp', 0)
+        local  = lamport.update(remote)
+        msg    = json.loads(body)
+        print(f"[Lamport Cliente] Post remoto={remote} → local={local}")
+        print(f"[Notificação] {msg['userId']} postou: {msg['content']}")
 
-    # Thread para escutar a exchange 'posts'
-    def start_listener():
-        lconn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-        lch = lconn.channel()
-        lch.exchange_declare(exchange='posts', exchange_type='fanout', durable=True)
-        q = lch.queue_declare('', exclusive=True).method.queue
-        lch.queue_bind(exchange='posts', queue=q)
-        lch.basic_consume(queue=q, on_message_callback=on_post, auto_ack=True)
-        lch.start_consuming()
+    def post_listener():
+        pconn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        pch   = pconn.channel()
+        pch.exchange_declare(exchange='posts', exchange_type='fanout', durable=True)
+        qp = pch.queue_declare('', exclusive=True).method.queue
+        pch.queue_bind(exchange='posts', queue=qp)
+        pch.basic_consume(queue=qp, on_message_callback=on_post, auto_ack=True)
+        pch.start_consuming()
 
-    threading.Thread(target=start_listener, daemon=True).start()
+    threading.Thread(target=post_listener, daemon=True).start()
 
-    print("Digite suas mensagens. Escreva 'sair' para encerrar.\n")
-
-    # Loop de postagem
+    # 4) loop de envio de posts (igual ao seu):
     while True:
-        content = input("> ").strip()
-        if content.lower() == "sair":
-            print("Encerrando client.")
-            break
+        content = input("> ")
+        if content.lower()=="sair": break
 
+        ts_phys = phy_clock.now().isoformat()
+        ts_lamp = lamport.tick()
+        props   = pika.BasicProperties(delivery_mode=2, headers={'logicalTimestamp': ts_lamp})
         post_msg = {
-            "type": "post",
-            "postId": str(uuid.uuid4()),
-            "userId": user_id,
+            "type":    "post",
+            "postId":  str(uuid.uuid4()),
+            "userId":  user_id,
             "content": content,
-            "timestamp": datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
+            "timestamp": ts_phys
         }
-        ch.basic_publish(
-            exchange='posts',
-            routing_key='',
-            body=json.dumps(post_msg),
-            properties=pika.BasicProperties(delivery_mode=2)
-        )
-        print(f"[Você] Post enviado: “{content}”")
+        ch.basic_publish(exchange='posts', routing_key='', body=json.dumps(post_msg), properties=props)
+        print(f"[Você → Post] fis={ts_phys} lamp={ts_lamp}")
 
-    # Fechar conexão de publicação
     conn.close()
 
 def start_rabbitmq_listener(username):
     try:
-        # Conectar ao RabbitMQ
+        # 1) Conectar ao RabbitMQ e criar canal
         conn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-        ch = conn.channel()
+        ch   = conn.channel()
 
-        # Declarar a exchange de posts
+        # —————————————————————————————
+        # POSTS
         ch.exchange_declare(exchange='posts', exchange_type='fanout', durable=True)
+        queue_posts = ch.queue_declare('', exclusive=True).method.queue
+        ch.queue_bind(exchange='posts', queue=queue_posts)
 
-        # Criar uma fila exclusiva para o usuário
-        queue = ch.queue_declare('', exclusive=True).method.queue
-        ch.queue_bind(exchange='posts', queue=queue)
-
-        # Função para processar mensagens recebidas
         def on_post(ch, method, properties, body):
+            remote_ts = properties.headers.get('logicalTimestamp', 0)
+            local_ts  = lamport.update(remote_ts)
+            print(f"[Lamport {username}] Post remoto={remote_ts} → local={local_ts}")
             msg = json.loads(body)
-            user_id = msg.get("userId")
-            content = msg.get("content")
-            timestamp = msg.get("timestamp")
-            print(f"[Notificação] {user_id} postou: {content} ({timestamp})")
+            print(f"[Notificação {username}] {msg['userId']} postou: {msg['content']}")
 
-        # Consumir mensagens da fila
-        ch.basic_consume(queue=queue, on_message_callback=on_post, auto_ack=True)
-        print(f"[RabbitMQ] Conexão ativa para o usuário {username}.")
+        ch.basic_consume(queue=queue_posts, on_message_callback=on_post, auto_ack=True)
+
+
+        # —————————————————————————————
+        # FOLLOWS
+        ch.exchange_declare(exchange='follows', exchange_type='fanout', durable=True)
+        queue_follows = ch.queue_declare('', exclusive=True).method.queue
+        ch.queue_bind(exchange='follows', queue=queue_follows)
+
+        def on_follow(ch, method, properties, body):
+            remote_ts = properties.headers.get('logicalTimestamp', 0)
+            local_ts  = lamport.update(remote_ts)
+            print(f"[Lamport {username}] Follow remoto={remote_ts} → local={local_ts}")
+            msg = json.loads(body)
+            print(f"[Notificação {username}] {msg['followerId']} seguiu {msg['followedId']}")
+
+        ch.basic_consume(queue=queue_follows, on_message_callback=on_follow, auto_ack=True)
+
+
+        # —————————————————————————————
+        # PRIVATE MESSAGES (caso queira)
+        ch.exchange_declare(exchange='private_messages', exchange_type='fanout', durable=True)
+        queue_pm = ch.queue_declare('', exclusive=True).method.queue
+        ch.queue_bind(exchange='private_messages', queue=queue_pm)
+
+        def on_private(ch, method, properties, body):
+            remote_ts = properties.headers.get('logicalTimestamp', 0)
+            local_ts  = lamport.update(remote_ts)
+            print(f"[Lamport {username}] Privado remoto={remote_ts} → local={local_ts}")
+            msg = json.loads(body)
+            print(f"[Mensagem Privada {username}] {msg['sender']}: {msg['content']}")
+
+        ch.basic_consume(queue=queue_pm, on_message_callback=on_private, auto_ack=True)
+
+
+        print(f"[RabbitMQ] {username} escutando posts, follows e mensagens privadas…")
         ch.start_consuming()
+
     except Exception as e:
         print(f"[Erro RabbitMQ] {e}")
+
 
 
 def open_menu(username):
@@ -361,18 +428,26 @@ def open_menu(username):
                             exchange="follows", exchange_type="fanout", durable=True
                         )
 
+                        # Publicar o follow COM DRIFT e LAMPORT
+                        ts_phys = phy_clock.now().isoformat()
+                        ts_lamp = lamport.tick()
+                        props   = pika.BasicProperties(
+                            delivery_mode=2,
+                            headers={'logicalTimestamp': ts_lamp}
+                        )
                         follow_msg = {
                             "type": "follow",
                             "followerId": username,
                             "followedId": follow,
-                            "timestamp": datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
+                            "timestamp": ts_phys
                         }
                         ch.basic_publish(
                             exchange="follows",
                             routing_key="",
                             body=json.dumps(follow_msg),
-                            properties=pika.BasicProperties(delivery_mode=2),
+                            properties=props
                         )
+
                         
                         messagebox.showinfo(
                             "Sucesso", f"Agora você está seguindo {follow}!"
@@ -482,68 +557,86 @@ def open_menu(username):
             other = combobox.get().strip()
             text  = entry.get().strip()
             if not other or not text:
-                messagebox.showerror("Erro", "   Selecione um usuário e digite algo.")
+                messagebox.showerror("Erro", "Selecione um usuário e digite algo.")
                 return
 
-            ts = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
-            new_msg = { ts: {"sender": username, "content": text} }
+            # 1) Gere UM SÓ ts_phys (com drift)
+            ts_phys = phy_clock.now().isoformat()
+            new_msg = { ts_phys: {"sender": username, "content": text} }
 
             conn = connect_to_db()
+            if not conn:
+                messagebox.showerror("Erro", "Não foi possível conectar ao banco.")
+                return
+
             try:
+                # 2) Atualiza o JSONB no banco com ts_phys
                 with conn.cursor() as cur:
                     cur.execute(
                         """
                         UPDATE usuario
-                           SET mensagens_privadas = jsonb_set(
-                                 mensagens_privadas,
-                                 %s,
-                                 COALESCE(mensagens_privadas #> %s, '{}'::jsonb) || %s::jsonb,
-                                 true
-                               )
-                         WHERE usuario_nome = %s
+                        SET mensagens_privadas = jsonb_set(
+                                mensagens_privadas,
+                                %s,
+                                COALESCE(mensagens_privadas #> %s, '{}'::jsonb) || %s::jsonb,
+                                true
+                            )
+                        WHERE usuario_nome = %s
                         """,
                         (
-                            [other],            # caminho no JSON
-                            [other],            # idem para #>
-                            json.dumps(new_msg),
+                            [other],             # caminho no JSON
+                            [other],             # idem para #>
+                            json.dumps(new_msg), # nosso novo par {ts_phys: {...}}
                             username
                         )
                     )
                     conn.commit()
 
-                    # SALVAR TUDO QUE ACONTECE NO SERVIDOR:
-                    rabbit_conn = pika.BlockingConnection(
-                        pika.ConnectionParameters(host="rabbitmq")
-                    )
-                    ch = rabbit_conn.channel()
-                    # garanta que a exchange existe:
-                    ch.exchange_declare(
-                        exchange="private_messages",
-                        exchange_type="fanout",
-                        durable=True
-                    )
+                # 3) Publique no RabbitMQ COM Lamport no header
+                ts_lamp = lamport.tick()
+                props   = pika.BasicProperties(
+                    delivery_mode=2,
+                    headers={'logicalTimestamp': ts_lamp}
+                )
+                private_msg = {
+                    "type":      "private",
+                    "sender":    username,
+                    "recipient": other,
+                    "content":   text,
+                    "timestamp": ts_phys
+                }
 
-                    private_msg = {
-                        "type":      "private",
-                        "sender":    username,
-                        "recipient": other,
-                        "content":   text,
-                        "timestamp": ts
-                    }
+                rabbit_conn = pika.BlockingConnection(
+                    pika.ConnectionParameters(host="rabbitmq")
+                )
+                ch = rabbit_conn.channel()
+                ch.exchange_declare(
+                    exchange="private_messages",
+                    exchange_type="fanout",
+                    durable=True
+                )
+                ch.basic_publish(
+                    exchange="private_messages",
+                    routing_key="",
+                    body=json.dumps(private_msg),
+                    properties=props
+                )
+                rabbit_conn.close()
 
-                    ch.basic_publish(
-                        exchange="private_messages",
-                        routing_key="",            # fanout ignora routing key
-                        body=json.dumps(private_msg),
-                        properties=pika.BasicProperties(delivery_mode=2)
-                    )
-                    rabbit_conn.close()
+                # 4) Atualize a UI recarregando o chat com ts_phys já salvo
+                entry.delete(0, "end")
+                load_chat()
 
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao enviar mensagem privada: {e}")
             finally:
                 conn.close()
 
+
+            # 4) Atualize a UI recarregando o chat (com o ts_phys já no banco)
             entry.delete(0, "end")
             load_chat()
+
 
         combobox.bind("<<ComboboxSelected>>", load_chat) # vai aparecer as mensagens logo quando eu selecionar alguma pessoa
 
@@ -626,73 +719,78 @@ def open_menu(username):
                 messagebox.showerror("Erro", "O conteúdo do post não pode estar vazio.")
                 return
 
+            # 1) Gere UM SÓ ts_phys (com drift) que usaremos em tudo
+            ts_phys = phy_clock.now().isoformat()
+            post_id = str(uuid.uuid4())
+
             conn = connect_to_db()
             if not conn:
                 messagebox.showerror("Erro", "Não foi possível conectar ao banco.")
                 return
 
             try:
-                # 1) Timestamp e ID
-                timestamp = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).isoformat()
-                post_id = str(uuid.uuid4())
-                # 2) JSONB
-                novo_post = {timestamp: {"id_post": post_id, "conteudo": content}}
-                # 3) Update
+                # 2) Atualiza o JSONB no banco com ts_phys
+                novo_post = { ts_phys: {"id_post": post_id, "conteudo": content} }
                 cur = conn.cursor()
                 cur.execute(
                     """
                     UPDATE usuario
                     SET posts_enviados = posts_enviados || %s::jsonb
                     WHERE usuario_nome = %s
-                      AND NOT EXISTS (
-                          SELECT 1 FROM jsonb_object_keys(posts_enviados) AS key
-                          WHERE key = %s
-                      )
-                """,
-                    (json.dumps(novo_post), username, timestamp),
+                    AND NOT EXISTS (
+                        SELECT 1 FROM jsonb_object_keys(posts_enviados) AS key
+                        WHERE key = %s
+                    )
+                    """,
+                    ( json.dumps(novo_post), username, ts_phys )
                 )
                 conn.commit()
                 cur.close()
 
-                # 4) RabbitMQ
+                # 3) Publique no RabbitMQ COM IMPOSTAÇÃO Lamport no header
+                ts_lamp = lamport.tick()
+                props   = pika.BasicProperties(
+                    delivery_mode=2,
+                    headers={'logicalTimestamp': ts_lamp}
+                )
+                post_msg = {
+                    "type":      "post",
+                    "postId":    post_id,
+                    "userId":    username,
+                    "content":   content,
+                    "timestamp": ts_phys
+                }
+
                 rabbit_conn = pika.BlockingConnection(
                     pika.ConnectionParameters(host="rabbitmq")
                 )
                 ch = rabbit_conn.channel()
-                ch.exchange_declare(
-                    exchange="posts", exchange_type="fanout", durable=True
-                )
+                ch.exchange_declare(exchange="posts", exchange_type="fanout", durable=True)
                 ch.basic_publish(
-                    exchange="posts",
-                    routing_key="",
-                    body=json.dumps(
-                        {
-                            "type": "post",
-                            "postId": post_id,
-                            "userId": username,
-                            "content": content,
-                            "timestamp": timestamp,
-                        }
-                    ),
-                    properties=pika.BasicProperties(delivery_mode=2),
+                    exchange='posts',
+                    routing_key='',
+                    body=json.dumps(post_msg),
+                    properties=props
                 )
-                
+                rabbit_conn.close()
 
-                # 5) Atualiza UI
+                # 4) Atualize a UI usando o mesmo ts_phys
                 customtkinter.CTkLabel(
                     post_frame,
-                    text=f"{username} ({timestamp}): {content}",
+                    text=f"{username} ({ts_phys}): {content}",
                     anchor="w",
                     justify="left",
                     wraplength=600,
                 ).pack(fill="x")
                 new_post_entry.delete(0, "end")
                 messagebox.showinfo("Sucesso", "Post enviado com sucesso!")
-                rabbit_conn.close()
+
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao enviar post: {e}")
             finally:
                 conn.close()
+
+
 
         customtkinter.CTkButton(
             new_post_frame, text="Postar", command=submit_post
