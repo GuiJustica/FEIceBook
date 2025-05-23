@@ -14,14 +14,36 @@
 ### [Java](https://www.oracle.com/java/technologies/downloads/)
 ### [Python](https://www.python.org/downloads/)
 
+
 ## Passo a passo de como rodar:
 
-### 1.  Abrir o docker (linux)
-### Com o linux, pode ignorar o resto
-```
-cd /caminho/para/projeto-dist/infra
-sudo docker compose up --build -d
-```
+Para executar o nosso projeto, que utiliza interface gráfica desenvolvida com ```Tkinter``` (biblioteca nativa do Python), é necessário rodá-lo em um ambiente ```Linux``` ou, alternativamente, em um terminal ```WSL``` (Windows Subsystem for Linux) que simule um ambiente Linux.
+
+
+### 1.  Acesse o diretório do projeto onde se encontra o arquivo ```docker-compose.yml```:
+```cd infra```
+
+### 2. Habilite o acesso gráfico para os containers ```Docker``` com o comando:
+```xhost +local:docker```
+
+### 3. Execute o Docker Compose para iniciar os serviços e instalar as dependências automaticamente:
+```docker compose up --build```
+
+> ### Observação:  
+> Após a primeira execução (com `--build`), caso deseje rodar o projeto novamente, basta utilizar o comando:
+> ```docker-compose up```
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### 1.1 Abrir o docker (windows)
 ```
