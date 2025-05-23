@@ -39,4 +39,10 @@ Para executar o nosso projeto, qpor ele utilizar uma interface gráfica desenvol
 
 > ### Observação:  
 > Após a primeira execução (com `--build`), caso deseje rodar o projeto novamente, basta utilizar o comando:
-> ```docker-compose up```
+> ```sudo docker-compose up```
+---
+
+# Explicação do funcionamento do projeto
+Ao iniciar o projeto, o Docker carregará todos os containers, criando automaticamente cinco clientes e três servidores:
+![clientes](https://cdn.discordapp.com/attachments/1372327706980651028/1375517572056743986/image.png?ex=6831fa11&is=6830a891&hm=d588b80992cb42e55c8507f381b59a4e8b93e2c8250cae5c9aed519dc3c4eacd&)
+![servidores](https://cdn.discordapp.com/attachments/1372327706980651028/1375518225449615420/image.png?ex=6831faac&is=6830a92c&hm=02f8e6310ee20bd140dc6c55ef25a46e868d27e596391fbc5fe948c0fb4f1877&)
