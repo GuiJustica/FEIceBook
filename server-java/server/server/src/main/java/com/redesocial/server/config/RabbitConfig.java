@@ -4,11 +4,20 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.redesocial.server.config.LogicalClockService;
+
 @Configuration
 public class RabbitConfig {
+
+    // Injeta o serviço de relógio lógico
+    @Autowired
+    private LogicalClockService logicalClockService;
 
     @Bean
     public FanoutExchange postsExchange() {
@@ -40,7 +49,6 @@ public class RabbitConfig {
         return BindingBuilder.bind(followsQueue).to(followsExchange);
     }
 
-    
     @Bean
     public FanoutExchange privateMessagesExchange() { // exchange para mensagens privadas
         return new FanoutExchange("private_messages");
@@ -56,5 +64,14 @@ public class RabbitConfig {
         return BindingBuilder.bind(privateMessagesQueue).to(privateMessagesExchange);
     }
 
-
+    @Bean // Bean que aplica o relógio lógico antes de cada publicação
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        template.setBeforePublishPostProcessors(message -> {
+            int ts = logicalClockService.onSend();
+            message.getMessageProperties().setHeader("logicalTimestamp", ts);
+            return message;
+        });
+        return template;
+    }
 }
