@@ -35,6 +35,8 @@ Para executar o nosso projeto, que utiliza interface gráfica desenvolvida com `
 ### 3. Execute o Docker Compose para iniciar os serviços e instalar as dependências automaticamente:
 ```sudo docker compose up --build```
 
+### Para executar o programa no ```WSL``` apenas entre na pasta ```ìnfra``` e execute o comando: ```sudo docker compose up --build```. 
+
 > ### Observação:  
 > Após a primeira execução (com `--build`), caso deseje rodar o projeto novamente, basta utilizar o comando:
 > ```docker-compose up```
