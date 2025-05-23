@@ -6,7 +6,6 @@
 * João Vitor Governatore - 24.122.027-6
 * Paulo Vincius Araujo Feitosa - 24.122.042-5
 
-a
 ## Pré requisitos para rodar o programa
 
 ### [Docker](https://www.docker.com/)
@@ -52,7 +51,13 @@ Ao iniciar o projeto, o Docker carregará todos os containers, criando automatic
 ### Cadastro dos usuários:
 Apenas será realizado o cadastro do usuário ao preencher o ```Usuário```, ```Senha``` e ```Confirmar Senha```. O ```usuário``` deve ser único.
 
+Tentando realizar o cadastro sem o preenchimento de nenhuma informação:
+
 ![Cadastro sem nada](https://cdn.discordapp.com/attachments/1372327706980651028/1375519001681072189/image.png?ex=6831fb65&is=6830a9e5&hm=1f1daf930cd00259886334279fa8d5c32e62cc395571b5db0701666d2ec2015b&)
+
+Cadastro com as senhas não coincidindo:
+
+![Cadastro usuário senhas não coincidindo](https://cdn.discordapp.com/attachments/1372327706980651028/1375535350642114572/image.png?ex=68320a9f&is=6830b91f&hm=b695281701343ab7cbf530387b9526e16cd1e2bc01f5ea2f95a3d63ed1ceea62&)
 
 Cadastro com todas as informações preenchidas:
 
