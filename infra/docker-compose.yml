@@ -53,6 +53,7 @@ services:
       - DISPLAY=${DISPLAY}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ../client/logs:/app/logs
     deploy:
       mode: replicated
       replicas: 5

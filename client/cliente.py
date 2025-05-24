@@ -12,6 +12,8 @@ import sys
 import customtkinter
 from tkinter import PhotoImage
 import pytz
+import logging
+import os
 from database import connect_to_db, get_mutuals
 
 class PhysicalClock:
@@ -24,6 +26,7 @@ class PhysicalClock:
             delta = timedelta(seconds=random.choice([-1, 1]))
             self.offset += delta
             print(f"[Drift] aplicando {delta.total_seconds()}s, offset={self.offset.total_seconds()}s")
+            logging.info(f"[Drift] aplicando {delta.total_seconds()}s, offset={self.offset.total_seconds()}s")
         return datetime.now(pytz.timezone("America/Sao_Paulo")) + self.offset
 
 class LogicalClock:
@@ -37,6 +40,14 @@ class LogicalClock:
     def update(self, remote_ts):
         self.counter = max(self.counter, remote_ts) + 1
         return self.counter
+
+os.makedirs("logs", exist_ok=True)
+logging.basicConfig(
+    filename="logs/client-python.log",
+    level=logging.INFO,
+    format="%(asctime)sZ [client-python] %(levelname)s %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S"
+)
 
 # instâncias globais
 phy_clock = PhysicalClock()
@@ -88,9 +99,11 @@ def create_account():
             )
             conn.commit()
             messagebox.showinfo("Sucesso", "Conta criada com sucesso!")
+            logging.info(f"CREATE_ACCOUNT usuário={username}")
             switch_to_login()
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao criar conta: {e}")
+        logging.error(f"CREATE_ACCOUNT-ERROR usuário={username} erro={e}")
     finally:
         conn.close()
 
@@ -101,6 +114,7 @@ def login():
 
     if not username or not password:
         messagebox.showerror("Erro", "Usuário e senha são obrigatórios.")
+        logging.warning(f"LOGIN_FAILED usuário={username}")
         return
 
     conn = connect_to_db()
@@ -114,14 +128,17 @@ def login():
             result = cur.fetchone()
             if not result or result[0] != password:
                 messagebox.showerror("Erro", "Usuário ou senha inválidos.")
+                logging.warning(f"LOGIN_FAILED usuário={username}")
                 return
 
             messagebox.showinfo("Sucesso", f"Bem-vindo, {username}!")
+            logging.info(f"LOGIN_SUCCESS usuário={username}")
             root.withdraw()  # Oculta a janela principal
             threading.Thread(target=start_rabbitmq_listener, args=(username,), daemon=True).start()
             open_menu(username)  # Abre o menu principal
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao realizar login: {e}")
+        logging.error(f"LOGIN-ERROR usuário={username} erro={e}")
     finally:
         conn.close()
 
@@ -153,6 +170,7 @@ def start_client(user_id):
     ch.exchange_declare(exchange='follows', exchange_type='fanout', durable=True)
     ch.basic_publish(exchange='follows', routing_key='', body=json.dumps(follow_msg), properties=props)
     print(f"[Você → Follow] fis={ts_phys} lamp={ts_lamp}")
+    logging.info(f"ENVIAR_FOLLOW follower={user_id} followed=outro_usuario fis={ts_phys} lamp={ts_lamp}")
 
     # 2) listener de follows
     def on_follow(ch, method, props, body):
@@ -161,6 +179,7 @@ def start_client(user_id):
         msg    = json.loads(body)
         print(f"[Lamport Cliente] Follow remoto={remote} → local={local}")
         print(f"[Notificação] {msg['followerId']} seguiu {msg['followedId']}")
+        logging.info(f"RECEBER_FOLLOW from={msg['followerId']} to={msg['followedId']} lamport_remote={remote} lamport_local={local}")
 
     def follow_listener():
         fconn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
@@ -180,6 +199,7 @@ def start_client(user_id):
         msg    = json.loads(body)
         print(f"[Lamport Cliente] Post remoto={remote} → local={local}")
         print(f"[Notificação] {msg['userId']} postou: {msg['content']}")
+        logging.info(f"RECEBER_POST from={msg['userId']} content=\"{msg['content']}\" lamport_remote={remote} lamport_local={local}")
 
     def post_listener():
         pconn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
@@ -209,6 +229,7 @@ def start_client(user_id):
         }
         ch.basic_publish(exchange='posts', routing_key='', body=json.dumps(post_msg), properties=props)
         print(f"[Você → Post] fis={ts_phys} lamp={ts_lamp}")
+        logging.info(f"ENVIAR_POST user={user_id} postId={post_msg['postId']} fis={ts_phys} lamp={ts_lamp}")
 
     conn.close()
 
@@ -452,11 +473,14 @@ def open_menu(username):
                         messagebox.showinfo(
                             "Sucesso", f"Agora você está seguindo {follow}!"
                         )
+                        logging.info(f"FOLLOW_DB_UPDATE user={username} follow={follow}")
+                        logging.info(f"ENVIAR_FOLLOW via UI follower={username} followed={follow} fis={ts_phys} lamp={ts_lamp}")
                         rabbit_conn.close()
                         
                         # follow_window.destroy()
                 except Exception as e:
                     messagebox.showerror("Erro", f"Erro ao seguir usuário: {e}")
+                    logging.error(f"FOLLOW_ERROR user={username} follow={follow} erro={e}")
                     
                 finally:
                     conn.close()
@@ -621,6 +645,7 @@ def open_menu(username):
                     body=json.dumps(private_msg),
                     properties=props
                 )
+                logging.info(f"ENVIAR_PRIVATE sender={username} recipient={other} content=\"{text}\" fis={ts_phys} lamp={ts_lamp}")
                 rabbit_conn.close()
 
                 # 4) Atualize a UI recarregando o chat com ts_phys já salvo
@@ -629,6 +654,7 @@ def open_menu(username):
 
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao enviar mensagem privada: {e}")
+                logging.error(f"PRIVATE_ERROR sender={username} recipient={other} erro={e}")
             finally:
                 conn.close()
 
@@ -784,9 +810,11 @@ def open_menu(username):
                 ).pack(fill="x")
                 new_post_entry.delete(0, "end")
                 messagebox.showinfo("Sucesso", "Post enviado com sucesso!")
+                logging.info(f"ENVIAR_POST_UI user={username} postId={post_id} content=\"{content}\" fis={ts_phys} lamp={ts_lamp}")
 
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao enviar post: {e}")
+                logging.error(f"POST_UI_ERROR user={username} erro={e}")
             finally:
                 conn.close()
 
