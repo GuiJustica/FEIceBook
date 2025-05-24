@@ -132,6 +132,12 @@ Banco de dados atualizado com as ```mensagens privadas```:
 
 ![Banco de dados mensagens privadas](https://cdn.discordapp.com/attachments/1372327706980651028/1375530151047331930/image.png?ex=683205c8&is=6830b448&hm=aeb7edba95548d464b561c24826bf546827bf8a8a6815df95b1bfa409df826f3&)
 
+### Sincronização do Relógio Berkeley
+
+Neste caso, quando o usuário joao enviou um post, aparece que foi aplicado um adiantamento no tempo (30% de ocorrer). O servidor 1, que foi o responsável por esse post recebe esse adiantamento como é possível ver, já que seu horário adiantou 1 minuto, no entanto, logo abaixo ele informa que recebeu esse tempo a mais e já sincronizou para corrigir o horário. É possível verificar que o horário for concertado, pois depois de 10 segundos esse mesmo servidor alertaque não houve mais problemas com o horário e já mostra o horário corrigido.
+
+![Banco de dados mensagens privadas](https://cdn.discordapp.com/attachments/973374566879625216/1375629269392425042/image.png?ex=68326217&is=68311097&hm=40d381f8ebb2c28cf424a8a66c4e7fb9fbc033c5cea4743c2d020a3a6482303a&)
+
 > ### Atenção!!
 > Para verificar que as mensagens privadas estão sendo atualizadas, é necessário clicar novamente no botão de ```mensagens privadas``` e clicar na caixa de seleção do usuário que deseja conversar!
 
