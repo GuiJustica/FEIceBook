@@ -128,6 +128,9 @@ Banco de Dados atualizado:
 
 ![mensagem privada felipe](https://cdn.discordapp.com/attachments/1372327706980651028/1375529689946259577/image.png?ex=6832055a&is=6830b3da&hm=0492f71725c7810add2f9d22e0a8308eeb35553056f6b619512c11b3f2920fd5&)
 
+> ### Atenção!!
+> Para verificar que as mensagens privadas estão sendo atualizadas, é necessário clicar novamente no botão de ```mensagens privadas``` e clicar na caixa de seleção do usuário que deseja conversar!
+
 Banco de dados atualizado com as ```mensagens privadas```:
 
 ![Banco de dados mensagens privadas](https://cdn.discordapp.com/attachments/1372327706980651028/1375530151047331930/image.png?ex=683205c8&is=6830b448&hm=aeb7edba95548d464b561c24826bf546827bf8a8a6815df95b1bfa409df826f3&)
@@ -144,8 +147,11 @@ Neste caso, quando o usuário joao enviou um post, aparece que foi aplicado um a
 
 ![Sincronização do Relógio Berkeley](https://cdn.discordapp.com/attachments/973374566879625216/1375629269392425042/image.png?ex=68326217&is=68311097&hm=40d381f8ebb2c28cf424a8a66c4e7fb9fbc033c5cea4743c2d020a3a6482303a&)
 
-> ### Atenção!!
-> Para verificar que as mensagens privadas estão sendo atualizadas, é necessário clicar novamente no botão de ```mensagens privadas``` e clicar na caixa de seleção do usuário que deseja conversar!
+### Criação do arquivo .log
+
+Esse arquivo .log vai conter tudo que acontece em nossa aplicação como: Criação de uma nova conta, login, enviar uma mensagem privada, postar algo, seguir alguém ou qualquer erro que ocorra como falha ao logar por conta de nome ou senha incorretos. O arquivo esta no caminho a seguir: ```./client/logs```. E o nome do arquivo é ```client-python.log```.
+
+![Sincronização do Relógio Berkeley](https://cdn.discordapp.com/attachments/973374566879625216/1375635289225039942/image.png?ex=683267b3&is=68311633&hm=3bcb6d4d71ded62f2feb7295006ce67c1113550d5f277e77f12da59fdc8174c1&)
 
 ---
 
