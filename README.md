@@ -72,12 +72,11 @@ Após o cadastro do usuário será salvo suas informações no banco de dados ``
 Você será redirecionado para a tela de ```login```, onde será necessário preencher os dados cadastrados anteriormente.
 
 
-
-Tentativa de Loguin com o usuário não cadastrado:
+Tentativa de Login com o usuário não cadastrado:
 
 ![Loguin não cadastrado](https://cdn.discordapp.com/attachments/1372327706980651028/1375521274154979430/image.png?ex=6831fd83&is=6830ac03&hm=955115d25ec4f6d027379c65a4e078aa8b2c2e6bd67605e8432139450d4be94f&)
 
-Loguin com usuário cadastrado:
+Login com usuário cadastrado:
 
 ![Loguin correto](https://cdn.discordapp.com/attachments/1372327706980651028/1375521650472255758/image.png?ex=6831fddd&is=6830ac5d&hm=c89cf7527ba396fa22fc24cbe3e6207754d6955718e15992aaa57ef46776a9a2&)
 
