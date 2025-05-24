@@ -134,7 +134,7 @@ Banco de dados atualizado com as ```mensagens privadas```:
 
 ### Sincronização do Relógio Berkeley
 
-Neste caso, quando o usuário joao enviou um post, aparece que foi aplicado um adiantamento no tempo (30% de ocorrer). O servidor 1, que foi o responsável por esse post recebe esse adiantamento como é possível ver, já que seu horário adiantou 1 minuto, no entanto, logo abaixo ele informa que recebeu esse tempo a mais e já sincronizou para corrigir o horário. É possível verificar que o horário for concertado, pois depois de 10 segundos esse mesmo servidor alertaque não houve mais problemas com o horário e já mostra o horário corrigido.
+Neste caso, quando o usuário joao enviou um post, aparece que foi aplicado um adiantamento no tempo (30% de chance de ocorrer). O servidor 1, que foi o responsável por esse post recebe esse adiantamento como é possível ver, já que seu horário adiantou 1 minuto. No entanto, logo abaixo ele informa que recebeu esse tempo a mais e já sincronizou para corrigir o horário. É possível verificar que o horário for concertado, pois depois de 10 segundos esse mesmo servidor alerta que não houve mais problemas com o horário e já mostra o horário corrigido.
 
 ![Banco de dados mensagens privadas](https://cdn.discordapp.com/attachments/973374566879625216/1375629269392425042/image.png?ex=68326217&is=68311097&hm=40d381f8ebb2c28cf424a8a66c4e7fb9fbc033c5cea4743c2d020a3a6482303a&)
 
