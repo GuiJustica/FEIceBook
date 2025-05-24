@@ -124,7 +124,7 @@ Banco de Dados atualizado:
 
 ![mensagem privada joao](https://cdn.discordapp.com/attachments/1372327706980651028/1375528511837573272/image.png?ex=68320441&is=6830b2c1&hm=0fc0405db7c6646c37735a3cedb2a8efb15786f83e42d8a1bbe1c9fafc65ec81&)
 
-### ```felipe``` mandando mensagem para o ```joao```
+### ```felipe``` enviando mensagem para o ```joao```
 
 ![mensagem privada felipe](https://cdn.discordapp.com/attachments/1372327706980651028/1375529689946259577/image.png?ex=6832055a&is=6830b3da&hm=0492f71725c7810add2f9d22e0a8308eeb35553056f6b619512c11b3f2920fd5&)
 
@@ -132,11 +132,17 @@ Banco de dados atualizado com as ```mensagens privadas```:
 
 ![Banco de dados mensagens privadas](https://cdn.discordapp.com/attachments/1372327706980651028/1375530151047331930/image.png?ex=683205c8&is=6830b448&hm=aeb7edba95548d464b561c24826bf546827bf8a8a6815df95b1bfa409df826f3&)
 
+### Atualização de Relógio Lógico (Lamport)
+
+Na imagem você vê que, a cada post recebido pelo RabbitMQ, o servidor pega o timestamp que veio na mensagem (1, depois 3, depois 5) e faz ```clock_local = max(clock_local, ts_remoto) + 1```. Então, se antes o relógio local era 0, ao receber 1 vira 2; ao receber 3 vira 4; ao receber 5 vira 6. Isso garante que, mesmo em vários servidores, os eventos fiquem sempre ordenados de forma causal.
+
+![Atualização de Relógio Lógico (Lamport)](https://cdn.discordapp.com/attachments/973374566879625216/1375632974485393518/image.png?ex=6832658b&is=6831140b&hm=135f5ec84a0d2f9d3c802e217572039ebcc05da44109e0117ea9c9a6624d07be&)
+
 ### Sincronização do Relógio Berkeley
 
 Neste caso, quando o usuário joao enviou um post, aparece que foi aplicado um adiantamento no tempo (30% de chance de ocorrer). O servidor 1, que foi o responsável por esse post recebe esse adiantamento como é possível ver, já que seu horário adiantou 1 minuto. No entanto, logo abaixo ele informa que recebeu esse tempo a mais e já sincronizou para corrigir o horário. É possível verificar que o horário for concertado, pois depois de 10 segundos esse mesmo servidor alerta que não houve mais problemas com o horário e já mostra o horário corrigido.
 
-![Banco de dados mensagens privadas](https://cdn.discordapp.com/attachments/973374566879625216/1375629269392425042/image.png?ex=68326217&is=68311097&hm=40d381f8ebb2c28cf424a8a66c4e7fb9fbc033c5cea4743c2d020a3a6482303a&)
+![Sincronização do Relógio Berkeley](https://cdn.discordapp.com/attachments/973374566879625216/1375629269392425042/image.png?ex=68326217&is=68311097&hm=40d381f8ebb2c28cf424a8a66c4e7fb9fbc033c5cea4743c2d020a3a6482303a&)
 
 > ### Atenção!!
 > Para verificar que as mensagens privadas estão sendo atualizadas, é necessário clicar novamente no botão de ```mensagens privadas``` e clicar na caixa de seleção do usuário que deseja conversar!
